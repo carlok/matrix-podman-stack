@@ -1,0 +1,192 @@
+# Private Matrix stack for rootless Podman Compose.
+# Reverse proxy (nginx) runs on the host — services bind to 127.0.0.1 only.
+
+name: matrix-podman-stack
+
+x-synapse-image: &synapse_image docker.io/matrixdotorg/synapse:v1.163.2
+
+services:
+  postgres-synapse:
+    image: docker.io/library/postgres:16.8-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${SYNAPSE_POSTGRES_USER:-synapse}
+      POSTGRES_PASSWORD: ${SYNAPSE_POSTGRES_PASSWORD:?set SYNAPSE_POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${SYNAPSE_POSTGRES_DB:-synapse}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - ./data/postgres-synapse:/var/lib/postgresql/data:Z
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${SYNAPSE_POSTGRES_USER:-synapse} -d ${SYNAPSE_POSTGRES_DB:-synapse}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - matrix
+
+  synapse:
+    image: *synapse_image
+    restart: unless-stopped
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    depends_on:
+      postgres-synapse:
+        condition: service_healthy
+    environment:
+      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME:?set SYNAPSE_SERVER_NAME in .env}
+      SYNAPSE_REPORT_STATS: "no"
+    volumes:
+      - ./data/synapse:/data:Z
+    ports:
+      - "127.0.0.1:${SYNAPSE_HTTP_PORT:-8008}:8008"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -fsS http://127.0.0.1:8008/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 60s
+    networks:
+      - matrix
+
+  element:
+    image: docker.io/vectorim/element-web:v1.12.32
+    restart: unless-stopped
+    # nginx inside the image binds :80; rootless Podman needs root in the container namespace.
+    user: "0:0"
+    depends_on:
+      synapse:
+        condition: service_healthy
+    volumes:
+      - ./data/element/config.json:/app/config.json:ro,Z
+    ports:
+      - "127.0.0.1:${ELEMENT_HTTP_PORT:-8080}:80"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    networks:
+      - matrix
+
+  postgres-telegram:
+    image: docker.io/library/postgres:16.8-bookworm
+    restart: unless-stopped
+    profiles:
+      - telegram
+    environment:
+      POSTGRES_USER: ${TELEGRAM_POSTGRES_USER:-mautrix_telegram}
+      POSTGRES_PASSWORD: ${TELEGRAM_POSTGRES_PASSWORD:-change_me_telegram_db}
+      POSTGRES_DB: ${TELEGRAM_POSTGRES_DB:-mautrix_telegram}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - ./data/postgres-telegram:/var/lib/postgresql/data:Z
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${TELEGRAM_POSTGRES_USER:-mautrix_telegram} -d ${TELEGRAM_POSTGRES_DB:-mautrix_telegram}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - matrix
+
+  mautrix-telegram:
+    image: dock.mau.dev/mautrix/telegram:v0.2610.0
+    restart: unless-stopped
+    profiles:
+      - telegram
+    depends_on:
+      postgres-telegram:
+        condition: service_healthy
+      synapse:
+        condition: service_healthy
+    volumes:
+      - ./data/mautrix-telegram:/data:Z
+    networks:
+      - matrix
+
+  synapse-bootstrap:
+    image: *synapse_image
+    profiles:
+      - bootstrap
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    entrypoint: ["/bin/bash", "/bootstrap/synapse-bootstrap.sh"]
+    environment:
+      SYNAPSE_UID: ${HOST_UID:-1000}
+      SYNAPSE_GID: ${HOST_GID:-1000}
+      SYNAPSE_SERVER_NAME: ${SYNAPSE_SERVER_NAME:?set SYNAPSE_SERVER_NAME in .env}
+      SYNAPSE_REPORT_STATS: "no"
+      SYNAPSE_POSTGRES_USER: ${SYNAPSE_POSTGRES_USER:-synapse}
+      SYNAPSE_POSTGRES_PASSWORD: ${SYNAPSE_POSTGRES_PASSWORD:?set SYNAPSE_POSTGRES_PASSWORD in .env}
+      SYNAPSE_POSTGRES_DB: ${SYNAPSE_POSTGRES_DB:-synapse}
+      POSTGRES_HOST: postgres-synapse
+      REGISTRATION_SHARED_SECRET: ${REGISTRATION_SHARED_SECRET:?set REGISTRATION_SHARED_SECRET in .env}
+      MATRIX_MACAROON_SECRET: ${MATRIX_MACAROON_SECRET:?set MATRIX_MACAROON_SECRET in .env}
+      MATRIX_FORM_SECRET: ${MATRIX_FORM_SECRET:?set MATRIX_FORM_SECRET in .env}
+    volumes:
+      - ./data/synapse:/data:Z
+      - ./bootstrap:/bootstrap:ro,Z
+    depends_on:
+      postgres-synapse:
+        condition: service_healthy
+    networks:
+      - matrix
+
+  prometheus:
+    image: docker.io/prom/prometheus:v3.2.1
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      synapse:
+        condition: service_healthy
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro,Z
+      - ./data/prometheus:/prometheus:Z
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HTTP_PORT:-9090}:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.enable-lifecycle"
+    networks:
+      - matrix
+
+  grafana:
+    image: docker.io/grafana/grafana:11.5.2
+    restart: unless-stopped
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change_me_grafana}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://127.0.0.1:3000}
+    volumes:
+      - ./data/grafana:/var/lib/grafana:Z
+    ports:
+      - "127.0.0.1:${GRAFANA_HTTP_PORT:-3000}:3000"
+    networks:
+      - matrix
+
+networks:
+  matrix:
+    driver: bridge

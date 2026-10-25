@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+
+jobs:
+  lint-and-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq podman podman-compose shellcheck python3-pip
+          python3 -m pip install --user ruff PyYAML
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Validate compose
+        run: |
+          cp .env.example .env
+          podman compose config > /dev/null
+
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh bootstrap/*.sh
+
+      - name: Ruff (example bot)
+        run: ruff check bots/
+
+      - name: Python syntax (scripts)
+        run: python3 -m py_compile scripts/*.py bots/example_bot/bot.py
+
+      - name: Bot config loader
+        run: |
+          python3 scripts/load_bot_config.py --config bots.example.yaml --json | python3 -m json.tool
