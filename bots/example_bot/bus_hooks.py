@@ -23,23 +23,25 @@ async def run_bus_demo(mention_text: str, bot_user_id: str) -> None:
     if nats_url:
         try:
             import nats
+            from nats.js.errors import BadRequestError
 
             nc = await nats.connect(nats_url)
             js = nc.jetstream()
             try:
                 await js.add_stream(name="BOT_TASKS", subjects=["bot.tasks.>"])
-            except Exception:
-                pass
+            except BadRequestError:
+                log.debug("JetStream BOT_TASKS stream already exists")
             payload = f"{bot_user_id}:{mention_text[:200]}".encode()
             await js.publish("bot.tasks.mention", payload)
             await nc.close()
             log.info("Published mention event to NATS JetStream")
-        except Exception as exc:
+        except (ImportError, OSError, TimeoutError, ValueError) as exc:
             log.warning("NATS publish skipped: %s", exc)
 
     if valkey_password:
         try:
             import redis
+            from redis.exceptions import RedisError
 
             client = redis.Redis(
                 host=valkey_host,
@@ -49,7 +51,7 @@ async def run_bus_demo(mention_text: str, bot_user_id: str) -> None:
             )
             client.set(BUS_DEMO_KEY, mention_text[:500])
             log.info("Valkey %s=%r", BUS_DEMO_KEY, client.get(BUS_DEMO_KEY)[:40])
-        except Exception as exc:
+        except (ImportError, OSError, ValueError, RedisError) as exc:
             log.warning("Valkey write skipped: %s", exc)
 
 

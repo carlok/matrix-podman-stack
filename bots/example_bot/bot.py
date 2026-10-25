@@ -12,12 +12,17 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional
 
-from nio import AsyncClient, InviteMemberEvent, MatrixRoom, RoomMessageText, SyncResponse
+from nio import (
+    AsyncClient,
+    InviteMemberEvent,
+    MatrixRoom,
+    RoomMessageText,
+    SyncResponse,
+)
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from bus_hooks import run_bus_demo  # noqa: E402
+from bus_hooks import run_bus_demo
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("example-bot")
@@ -37,14 +42,15 @@ async def llm_reply(prompt: str) -> str:
         base = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
         model = os.environ.get("OLLAMA_MODEL", "tinyllama")
         payload = {"model": model, "prompt": prompt, "stream": False}
+        timeout = aiohttp.ClientTimeout(total=120)
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    f"{base}/api/generate", json=payload, timeout=aiohttp.ClientTimeout(total=120)
-                ) as resp:
-                    data = await resp.json()
-                    return str(data.get("response", ""))[:2000] or "(ollama: empty response)"
-        except Exception as exc:
+            async with (
+                aiohttp.ClientSession(timeout=timeout) as session,
+                session.post(f"{base}/api/generate", json=payload) as resp,
+            ):
+                data = await resp.json()
+                return str(data.get("response", ""))[:2000] or "(ollama: empty response)"
+        except (TimeoutError, aiohttp.ClientError, ValueError) as exc:
             return f"(ollama error) {exc}"
 
     api_key = os.environ.get("LLM_PROVIDER_KEY", "").strip()
@@ -71,7 +77,7 @@ def sender_is_ignored_bot(sender: str, own_user_id: str, server_name: str) -> bo
     return False
 
 
-def mention_text(event: RoomMessageText, user_id: str) -> Optional[str]:
+def mention_text(event: RoomMessageText, user_id: str) -> str | None:
     body = event.body.strip()
     localpart = user_id.split(":", 1)[0].removeprefix("@")
     if f"@{localpart}" in body:
