@@ -78,6 +78,11 @@ path.write_text(yaml.safe_dump(cfg, sort_keys=False))
 for listener in cfg.get("listeners", []):
     if listener.get("type") == "http" and listener.get("port") == 8008:
         listener["bind_addresses"] = ["0.0.0.0"]
+        for resource in listener.get("resources", []):
+            names = list(resource.get("names") or [])
+            if "metrics" not in names:
+                names.append("metrics")
+            resource["names"] = names
 
 log_cfg_path = Path("/data") / f"{os.environ['SYNAPSE_SERVER_NAME']}.log.config"
 if log_cfg_path.exists():
