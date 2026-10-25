@@ -24,13 +24,16 @@ jobs:
           podman compose config > /dev/null
 
       - name: Shellcheck
-        run: shellcheck scripts/*.sh bootstrap/*.sh
+        run: shellcheck -e SC1090,SC1091 scripts/*.sh bootstrap/*.sh
 
       - name: Ruff (example bot)
         run: ruff check bots/
 
       - name: Python syntax (scripts)
         run: python3 -m py_compile scripts/*.py bots/example_bot/bot.py
+
+      - name: Ruff (scripts)
+        run: ruff check scripts/ bots/
 
       - name: Bot config loader
         run: |

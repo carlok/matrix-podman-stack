@@ -38,6 +38,14 @@ cfg["federation_domain_whitelist"] = []
 # Metrics for optional Prometheus profile
 cfg["enable_metrics"] = True
 
+# Relaxed defaults for small private servers (override in homeserver.yaml if needed)
+cfg["rc_login"] = {
+    "address": {"per_second": 50, "burst_count": 300},
+    "account": {"per_second": 50, "burst_count": 300},
+    "failed_attempts": {"per_second": 1, "burst_count": 50},
+}
+cfg["rc_message"] = {"per_second": 50, "burst_count": 500}
+
 # Rootless-friendly paths (writable under /data volume)
 cfg["media_store_path"] = "/data/media_store"
 cfg["uploads_path"] = "/data/uploads"
@@ -91,6 +99,9 @@ chmod 644 /data/homeserver.yaml /data/*.log.config 2>/dev/null || true
 touch /data/homeserver.log 2>/dev/null || true
 chmod 664 /data/homeserver.log 2>/dev/null || true
 mkdir -p /data/media_store /data/uploads
+if [[ -n "${SYNAPSE_UID:-}" && -n "${SYNAPSE_GID:-}" ]]; then
+  chown -R "${SYNAPSE_UID}:${SYNAPSE_GID}" /data/media_store /data/uploads
+fi
 if [[ -n "${SYNAPSE_UID:-}" && -n "${SYNAPSE_GID:-}" ]]; then
   chown -R "${SYNAPSE_UID}:${SYNAPSE_GID}" /data
 fi

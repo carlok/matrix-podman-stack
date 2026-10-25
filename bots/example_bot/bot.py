@@ -10,9 +10,14 @@ import asyncio
 import logging
 import os
 import re
+import sys
+from pathlib import Path
 from typing import Optional
 
-from nio import AsyncClient, InviteMemberEvent, MatrixRoom, RoomMessageText
+from nio import AsyncClient, InviteMemberEvent, MatrixRoom, RoomMessageText, SyncResponse
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bus_hooks import run_bus_demo  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("example-bot")
@@ -25,8 +30,24 @@ DEFAULT_IGNORE_LOCALPART_RE = re.compile(
 
 async def llm_reply(prompt: str) -> str:
     """Pluggable LLM hook — replace with your provider SDK."""
+    provider = os.environ.get("LLM_PROVIDER", "stub").lower()
+    if provider == "ollama":
+        import aiohttp
+
+        base = os.environ.get("OLLAMA_URL", "http://ollama:11434").rstrip("/")
+        model = os.environ.get("OLLAMA_MODEL", "tinyllama")
+        payload = {"model": model, "prompt": prompt, "stream": False}
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{base}/api/generate", json=payload, timeout=aiohttp.ClientTimeout(total=120)
+                ) as resp:
+                    data = await resp.json()
+                    return str(data.get("response", ""))[:2000] or "(ollama: empty response)"
+        except Exception as exc:
+            return f"(ollama error) {exc}"
+
     api_key = os.environ.get("LLM_PROVIDER_KEY", "").strip()
-    provider = os.environ.get("LLM_PROVIDER", "stub")
     if not api_key:
         return f"(stub) Mention received: {prompt[:500]}"
     return f"({provider}) echo: {prompt[:500]}"
@@ -82,18 +103,29 @@ async def main() -> None:
         text = mention_text(event, user_id)
         if text is None:
             return
+        await run_bus_demo(text, user_id)
         reply = await llm_reply(text)
         await client.room_send(
             room.room_id,
             "m.room.message",
             {"msgtype": "m.text", "body": reply},
         )
+        if os.environ.get("BOT_ONE_SHOT", "").lower() in {"1", "true", "yes"}:
+            log.info("One-shot reply sent; exiting")
+            await client.close()
+            return
+
+    async def join_invites_on_sync(response: SyncResponse) -> None:
+        for room_id in response.rooms.invite:
+            log.info("Joining invited room %s (sync invite)", room_id)
+            await client.join(room_id)
 
     client.add_event_callback(on_invite, InviteMemberEvent)
     client.add_event_callback(on_message, RoomMessageText)
+    client.add_response_callback(join_invites_on_sync, SyncResponse)
 
     log.info("Bot running as %s", user_id)
-    await client.sync_forever(timeout=30000, full_state=True)
+    await client.sync_forever(timeout=30000, full_state=False)
 
 
 if __name__ == "__main__":

@@ -12,7 +12,51 @@ Designed for a small private group with humans and automation accounts (bots). B
 - DNS for `SYNAPSE_SERVER_NAME` (and Element hostname) pointing at your server
 - Host **nginx** (or similar) to TLS-terminate and reverse-proxy to local ports
 
-Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `16.8-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.2.1`, Grafana `11.5.2`.
+Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `16.9-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.5.0`, Grafana `11.5.2`.
+
+## Sizing (CPU / RAM)
+
+Measured on a Linux host with **Podman 4.9.3** (`podman stats --no-stream`), stack idle ≥45s after health checks, **2026-10-25**. Container memory is cgroup usage; host bot processes run outside Podman.
+
+### Per service (idle)
+
+| Service | Profile | Idle CPU | Idle RAM |
+|---------|---------|----------|----------|
+| `postgres-synapse` | core | ~0.15–0.24% | ~22–35 MiB |
+| `synapse` | core | ~1.1–3.2% | ~115–121 MiB |
+| `element` | core | ~0.06–0.4% | ~4 MiB |
+| `nats` | `bus` | ~0.12–0.23% | ~2.5–3 MiB |
+| `valkey` | `bus` | ~0.11–0.18% | ~2.8 MiB |
+| `prometheus` | `monitoring` | ~0.05–0.31% | ~17–18 MiB |
+| `grafana` | `monitoring` | ~0.8–3% | ~58–62 MiB |
+| `postgres-telegram` | `telegram` | ~0.06–0.23% | ~4.4 MiB |
+| `mautrix-telegram` | `telegram` | low when configured* | ~80–200 MiB typical† |
+| `garage` | `object` | ~0.5% | ~4 MiB |
+| `qdrant` | `vectors` | ~0.1–0.4% | ~21–23 MiB |
+| `ollama` | `llm` | ~0.01–0.1% | ~9 MiB (daemon only, **no model**) |
+
+| Host process | When | Idle CPU | Idle RAM |
+|--------------|------|----------|----------|
+| `bots/example_bot/bot.py` | 2 bots syncing | ~1.2% each | ~44 MiB RSS each |
+
+\*Before `bootstrap-telegram.sh` and bridge login, mautrix may restart in a tight loop (high CPU, misleadingly low RSS).
+
+†After Telegram login; depends on bridge traffic and Python heap.
+
+**Ollama with a model:** pulling `tinyllama` or similar adds **hundreds of MiB to several GiB** RAM while inferring; size the host from [Ollama model cards](https://ollama.com/library), not the idle daemon row above.
+
+Reproduce a snapshot: `./scripts/collect-resource-stats.sh 'my scenario'`.
+
+### Recommended host (containers + modest headroom)
+
+| Scenario | vCPU | RAM | Notes |
+|----------|------|-----|--------|
+| **Core only** (Synapse + Postgres + Element) | 2 | **4 GiB** | ~160 MiB containers idle; room for OS, nginx, 2–4 host bots |
+| **Core + `bus`** | 2 | **4 GiB** | +~6 MiB for NATS + Valkey |
+| **All profiles except `llm`** | 4 | **8 GiB** | Core + bus + monitoring + telegram + object + vectors (~500 MiB containers idle) + bots |
+| **With `llm` (Ollama)** | 4+ | **16 GiB+** | Add model RAM/VRAM on top; raise `OLLAMA_MEM_LIMIT` in `.env` if you cap the container |
+
+Optional **memory limits** (`mem_limit` in `compose.yaml`, defaults in comments) can be overridden via `.env` — see `POSTGRES_MEM_LIMIT`, `SYNAPSE_MEM_LIMIT`, `OLLAMA_MEM_LIMIT`, etc. in `.env.example`. Caps protect the host on small VPS instances; set Ollama’s limit above your largest model or remove the cap for heavy local inference.
 
 ## Quick start
 
@@ -101,6 +145,13 @@ Provision Matrix users and token file:
 
 Tokens are written to `data/bots/tokens.env` (`chmod 600`). The script **does not print tokens**. Each bot gets variables like `BOT_<LOCALPART>_USER_ID` / `BOT_<LOCALPART>_ACCESS_TOKEN` (see the file after creation). `BOT_IGNORE_MATRIX_IDS` is populated for loop prevention.
 
+When `SYNAPSE_ADMIN_PASSWORD` (or `TEST_ADMIN_PASSWORD`) is set, `create-bots.sh` also:
+
+- Applies Synapse admin [`override_ratelimit`](https://element-hq.github.io/synapse/latest/admin_api/user_admin.html#override-ratelimit) for each bot (and admin) — defaults `BOT_RATELIMIT_MPS` / `BOT_RATELIMIT_BURST` (integers).
+- Rotates passwords for existing bot accounts via the admin API so tokens can be refreshed safely.
+
+Bootstrap sets relaxed `rc_login` / `rc_message` defaults for small private servers; tighten them in `data/synapse/homeserver.yaml` for production.
+
 ### 7. Invite bots to a private room
 
 In Element, create a private room and invite the bot MXIDs from `data/bots/tokens.env` (e.g. `@bot1:your.domain` when using the default pattern).
@@ -178,28 +229,84 @@ podman compose restart synapse
 
 4. Follow [mautrix-telegram](https://docs.mau.fi/bridges/python/telegram/index.html) docs to log in (e.g. `COMPOSE_PROFILES=telegram podman compose exec mautrix-telegram ...`).
 
+## Bot bus (optional profile `bus`)
+
+Lightweight **task queue** and **shared KV** for master/worker bots (off by default):
+
+| Service | Image | Use for |
+|---------|-------|---------|
+| [NATS](https://nats.io/) + JetStream | `nats:2.11.4-alpine` | Durable queues/streams — master publishes tasks, workers consume (`bot.tasks.*`) |
+| [Valkey](https://valkey.io/) | `valkey:8.1.2-alpine` | Redis-compatible KV — shared state, locks, short-lived flags |
+
+Both require auth (`NATS_USER` / `NATS_PASSWORD`, `VALKEY_PASSWORD` in `.env`). They listen on the internal `matrix` network; optional localhost ports are `127.0.0.1` only (`NATS_CLIENT_PORT`, `NATS_MONITOR_PORT`, `VALKEY_PORT`).
+
+```bash
+# set NATS_PASSWORD and VALKEY_PASSWORD in .env
+./scripts/bootstrap-bus.sh
+COMPOSE_PROFILES=bus podman compose up -d
+./scripts/verify-bus-persistence.sh   # auth + down -v survival smoke test
+```
+
+Persistence (under `DATA_DIR`): `nats/jetstream/` (JetStream file store), `nats/nats.conf` (generated, chmod 600), `valkey/` (AOF/RDB + generated `valkey.conf`).
+
+Example bot (optional): set `BUS_DEMO=true`, `NATS_URL=nats://bots:PASSWORD@nats:4222`, and `VALKEY_PASSWORD` when the profile is up — on each @mention it publishes a JetStream event and writes a shared Valkey key (see `bots/example_bot/bus_hooks.py`).
+
 ## Monitoring (optional)
 
 Enable the `monitoring` profile:
 
 ```bash
 # set GRAFANA_ADMIN_PASSWORD in .env
-COMPOSE_PROFILES=monitoring podman compose up -d
+mkdir -p data/prometheus data/grafana
+COMPOSE_PROFILES=monitoring HOST_UID=$(id -u) HOST_GID=$(id -g) podman compose up -d
 ```
 
 - Prometheus: `http://127.0.0.1:9090` (scrapes `/_synapse/metrics`)
 - Grafana: `http://127.0.0.1:3000`
 
+## Persistent data (`DATA_DIR`)
+
+All state lives on the host under **`DATA_DIR`** (default `./data`, set in `.env`). `compose.yaml` uses **bind mounts only** — no named or anonymous volumes — so data survives `podman compose down`, `podman compose down -v`, image upgrades, and reboots.
+
+| Host path (under `DATA_DIR`) | Contents |
+|------------------------------|----------|
+| `postgres-synapse/` | Synapse Postgres data directory |
+| `postgres-telegram/` | mautrix-telegram Postgres (profile `telegram`) |
+| `synapse/` | `homeserver.yaml`, signing key, `homeserver.log`, `media_store/`, `uploads/` |
+| `element/config.json` | Element Web client config |
+| `mautrix-telegram/` | Bridge config, registration, session DB files |
+| `prometheus/`, `grafana/` | Monitoring profile TSDB / Grafana lib |
+| `bots/tokens.env`, `bots/admin.token` | Bot and admin API tokens (`chmod 600`) |
+| `nats/jetstream/`, `nats/nats.conf` | NATS JetStream store + generated config (profile `bus`) |
+| `valkey/` | Valkey AOF/RDB + generated `valkey.conf` (profile `bus`) |
+
+**Rootless ownership:** Synapse and Prometheus run as `HOST_UID`/`HOST_GID` (default `1000`). Element and Grafana run as `root` in the container namespace (nginx/Grafana bind low ports). After copying a tarball from another machine, fix ownership:
+
+```bash
+export HOST_UID=$(id -u) HOST_GID=$(id -g)
+podman unshare chown -R "$HOST_UID:$HOST_GID" "$DATA_DIR/synapse" "$DATA_DIR/prometheus" "$DATA_DIR/postgres-synapse"
+```
+
+On SELinux hosts, compose uses `:Z` on bind mounts for rootless Podman.
+
+**Check persistence:** `./scripts/verify-data-persistence.sh` (creates a room/message, uploads media, runs `podman compose down -v`, brings the stack back, asserts data is still present).
+
 ## Backup and upgrades
 
-**Backup** (while stack is running or stopped):
+**Backup** (stop the stack, then copy the tree):
 
-- `data/postgres-synapse/` — Synapse database files
-- `data/synapse/` — `homeserver.yaml`, signing keys, uploads
-- `data/postgres-telegram/`, `data/mautrix-telegram/` — if using Telegram
-- `data/bots/tokens.env` — bot credentials (keep off-site, encrypted)
+```bash
+podman compose down
+tar -czf matrix-backup-$(date -u +%F).tar.gz -C "$(dirname "$DATA_DIR")" "$(basename "$DATA_DIR")"
+```
 
-Prefer `pg_dump` for Postgres-aware backups in production.
+Optional Postgres-aware dumps while running:
+
+```bash
+podman compose exec postgres-synapse pg_dump -U synapse synapse > synapse.sql
+```
+
+Keep `bots/tokens.env` encrypted off-site.
 
 **Upgrade**:
 
@@ -216,12 +323,14 @@ You can convert services to [Quadlets](https://docs.podman.io/en/latest/markdown
 
 | Path | Purpose |
 |------|---------|
-| `compose.yaml` | Core stack + profiles `bootstrap`, `telegram`, `monitoring` |
+| `compose.yaml` | Core stack + profiles `bootstrap`, `telegram`, `monitoring`, `bus`, `object`, `vectors`, `llm` |
+| `scripts/collect-resource-stats.sh` | `podman stats` snapshot for sizing |
 | `scripts/bootstrap.sh` | One-shot Synapse + Element config generation |
 | `bots.example.yaml` | Sample bot list / pattern (copy to `bots.yaml`) |
 | `scripts/create-bots.sh` | Provision bot users from `bots.yaml` |
 | `bots/example_bot/` | Minimal `matrix-nio` bot |
-| `data/` | Runtime data (gitignored) |
+| `DATA_DIR/` (default `./data/`) | All bind-mounted runtime state (gitignored) |
+| `scripts/verify-data-persistence.sh` | `down -v` survival smoke test |
 
 ## Validate compose file
 

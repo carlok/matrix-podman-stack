@@ -1,0 +1,12 @@
+-- Optional: enable pgvector in the existing Synapse Postgres (no extra container).
+-- Run only if you accept sharing the DB with Synapse (advanced / low-traffic bots).
+-- Requires postgres image with pgvector or CREATE EXTENSION from a compatible package.
+--
+--   podman compose exec postgres-synapse psql -U synapse -d synapse -f - < docs/pgvector-optional.sql
+--
+-- CREATE EXTENSION IF NOT EXISTS vector;
+-- CREATE TABLE IF NOT EXISTS bot_embeddings (
+--   id TEXT PRIMARY KEY,
+--   embedding vector(1536),
+--   metadata JSONB
+-- );

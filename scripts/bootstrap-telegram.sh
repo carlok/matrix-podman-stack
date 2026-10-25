@@ -10,7 +10,7 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 set -a
 source .env
 set +a
@@ -20,19 +20,23 @@ set +a
 : "${TELEGRAM_API_HASH:?}"
 : "${TELEGRAM_POSTGRES_PASSWORD:?}"
 
-DATA_DIR="$ROOT/data/mautrix-telegram"
-mkdir -p "$DATA_DIR"
+# shellcheck source=scripts/data_paths.sh
+source "$ROOT/scripts/data_paths.sh"
+DATA_ROOT="$(data_root "$ROOT")"
+ensure_data_dirs "$DATA_ROOT"
+BRIDGE_DATA="$DATA_ROOT/mautrix-telegram"
+mkdir -p "$BRIDGE_DATA"
 
-if [[ ! -f "$DATA_DIR/config.yaml" ]]; then
+if [[ ! -f "$BRIDGE_DATA/config.yaml" ]]; then
   echo "Generating mautrix-telegram config..."
   podman run --rm \
-    -v "$DATA_DIR:/data:Z" \
+    -v "$BRIDGE_DATA:/data:Z" \
     dock.mau.dev/mautrix/telegram:v0.2610.0 \
     -g -c /data/config.yaml -r /data/registration.yaml
 fi
 
 python3 "$ROOT/scripts/patch_telegram_config.py" \
-  --config "$DATA_DIR/config.yaml" \
+  --config "$BRIDGE_DATA/config.yaml" \
   --homeserver "http://synapse:8008" \
   --server-name "$SYNAPSE_SERVER_NAME" \
   --db-host postgres-telegram \
@@ -42,11 +46,11 @@ python3 "$ROOT/scripts/patch_telegram_config.py" \
   --api-id "$TELEGRAM_API_ID" \
   --api-hash "$TELEGRAM_API_HASH"
 
-cp -f "$DATA_DIR/registration.yaml" "$ROOT/data/synapse/telegram-registration.yaml"
-chmod 600 "$ROOT/data/synapse/telegram-registration.yaml" 2>/dev/null || true
+cp -f "$BRIDGE_DATA/registration.yaml" "$DATA_ROOT/synapse/telegram-registration.yaml"
+chmod 600 "$DATA_ROOT/synapse/telegram-registration.yaml" 2>/dev/null || true
 
 python3 "$ROOT/scripts/merge_telegram_appservice.py" \
-  --homeserver "$ROOT/data/synapse/homeserver.yaml"
+  --homeserver "$DATA_ROOT/synapse/homeserver.yaml"
 
 echo "Telegram bridge config ready. Start with:"
 echo "  COMPOSE_PROFILES=telegram podman compose up -d"

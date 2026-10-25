@@ -10,7 +10,7 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-# shellcheck disable=SC1091
+# shellcheck source=/dev/null
 set -a
 source .env
 set +a
@@ -19,12 +19,15 @@ set +a
 : "${PUBLIC_HOMESERVER_URL:?PUBLIC_HOMESERVER_URL required in .env}"
 : "${PUBLIC_ELEMENT_URL:?PUBLIC_ELEMENT_URL required in .env}"
 
-mkdir -p data/synapse data/element data/bots data/prometheus data/grafana
+# shellcheck source=scripts/data_paths.sh
+source "$ROOT/scripts/data_paths.sh"
+DATA_ROOT="$(data_root "$ROOT")"
+ensure_data_dirs "$DATA_ROOT"
 
 python3 "$ROOT/scripts/render_element_config.py" \
   --homeserver-url "$PUBLIC_HOMESERVER_URL" \
   --server-name "$SYNAPSE_SERVER_NAME" \
-  --output "$ROOT/data/element/config.json"
+  --output "$DATA_ROOT/element/config.json"
 
 echo "Starting Postgres..."
 podman compose up -d postgres-synapse
