@@ -83,7 +83,7 @@ x-podman-userns: &podman_userns
 services:
   postgres-synapse:
     <<: [*mem_postgres, *harden_postgres]
-    image: docker.io/library/postgres:16.9-bookworm
+    image: docker.io/library/postgres:18.6-bookworm
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${SYNAPSE_POSTGRES_USER:-synapse}
@@ -161,7 +161,7 @@ services:
 
   postgres-telegram:
     <<: [*mem_postgres, *harden_postgres]
-    image: docker.io/library/postgres:16.9-bookworm
+    image: docker.io/library/postgres:18.6-bookworm
     restart: unless-stopped
     profiles:
       - telegram
