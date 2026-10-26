@@ -308,7 +308,7 @@ services:
 
   ollama:
     <<: *mem_ollama
-    image: docker.io/ollama/ollama:0.6.8
+    image: docker.io/ollama/ollama:0.40.9
     restart: unless-stopped
     profiles:
       - llm
