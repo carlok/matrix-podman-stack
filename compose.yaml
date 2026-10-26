@@ -32,9 +32,57 @@ x-mem-grafana: &mem_grafana
 x-mem-bridge: &mem_bridge
   mem_limit: ${MAUTRIX_TELEGRAM_MEM_LIMIT:-512m}
 
+# Container runtime hardening (Podman/Docker). Services that break with read_only or cap_drop
+# are documented in docs/SECURITY-AUDIT.md.
+x-pids-limit: &pids_limit
+  pids_limit: ${CONTAINER_PIDS_LIMIT:-256}
+
+x-security-opt: &security_opt
+  security_opt:
+    - no-new-privileges:true
+
+x-cap-drop-all: &cap_drop_all
+  cap_drop:
+    - ALL
+
+x-caps-postgres: &caps_postgres
+  cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - FOWNER
+    - SETGID
+    - SETUID
+
+x-caps-valkey: &caps_valkey
+  cap_add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - SETGID
+    - SETUID
+
+x-harden-postgres: &harden_postgres
+  <<: [*pids_limit, *security_opt, *cap_drop_all, *caps_postgres]
+
+x-harden-synapse: &harden_synapse
+  <<: [*pids_limit, *security_opt, *cap_drop_all]
+
+x-harden-element: &harden_element
+  <<: [*pids_limit, *security_opt]
+  # read_only not used: Element entrypoint writes nginx config under /etc/nginx/conf.d
+
+x-harden-bus: &harden_bus
+  <<: [*pids_limit, *security_opt, *cap_drop_all, *caps_valkey]
+
+x-harden-monitoring: &harden_monitoring
+  <<: [*pids_limit, *security_opt, *cap_drop_all]
+
+# Rootless Podman: map host UID/GID into the container (writable bind mounts).
+x-podman-userns: &podman_userns
+  userns_mode: keep-id
+
 services:
   postgres-synapse:
-    <<: *mem_postgres
+    <<: [*mem_postgres, *harden_postgres]
     image: docker.io/library/postgres:16.9-bookworm
     restart: unless-stopped
     environment:
@@ -55,10 +103,10 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - matrix
+      - matrix-db
 
   synapse:
-    <<: *mem_synapse
+    <<: [*mem_synapse, *harden_synapse, *podman_userns]
     image: *synapse_image
     restart: unless-stopped
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
@@ -84,9 +132,10 @@ services:
       start_period: 60s
     networks:
       - matrix
+      - matrix-db
 
   element:
-    <<: *mem_element
+    <<: [*mem_element, *harden_element]
     image: docker.io/vectorim/element-web:v1.12.32
     restart: unless-stopped
     user: "0:0"
@@ -111,14 +160,14 @@ services:
       - matrix
 
   postgres-telegram:
-    <<: *mem_postgres
+    <<: [*mem_postgres, *harden_postgres]
     image: docker.io/library/postgres:16.9-bookworm
     restart: unless-stopped
     profiles:
       - telegram
     environment:
       POSTGRES_USER: ${TELEGRAM_POSTGRES_USER:-mautrix_telegram}
-      POSTGRES_PASSWORD: ${TELEGRAM_POSTGRES_PASSWORD:-change_me_telegram_db}
+      POSTGRES_PASSWORD: ${TELEGRAM_POSTGRES_PASSWORD:?set TELEGRAM_POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${TELEGRAM_POSTGRES_DB:-mautrix_telegram}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
@@ -134,10 +183,10 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - matrix
+      - matrix-db
 
   mautrix-telegram:
-    <<: *mem_bridge
+    <<: [*mem_bridge, *harden_synapse]
     image: dock.mau.dev/mautrix/telegram:v0.2610.0
     restart: unless-stopped
     profiles:
@@ -151,8 +200,10 @@ services:
       - ${DATA_DIR:-./data}/mautrix-telegram:/data:Z
     networks:
       - matrix
+      - matrix-db
 
   synapse-bootstrap:
+    <<: *podman_userns
     image: *synapse_image
     restart: "no"
     profiles:
@@ -178,10 +229,10 @@ services:
       postgres-synapse:
         condition: service_healthy
     networks:
-      - matrix
+      - matrix-db
 
   prometheus:
-    <<: *mem_prometheus
+    <<: [*mem_prometheus, *harden_monitoring, *podman_userns]
     image: docker.io/prom/prometheus:v3.15.1
     restart: unless-stopped
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
@@ -198,12 +249,11 @@ services:
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
-      - "--web.enable-lifecycle"
     networks:
       - matrix
 
   nats:
-    <<: *mem_nats
+    <<: [*mem_nats, *harden_bus]
     image: docker.io/library/nats:2.11.4-alpine
     restart: unless-stopped
     profiles:
@@ -229,7 +279,7 @@ services:
       - matrix
 
   valkey:
-    <<: *mem_valkey
+    <<: [*mem_valkey, *harden_bus]
     image: docker.io/valkey/valkey:9.1.2-alpine
     restart: unless-stopped
     profiles:
@@ -256,7 +306,7 @@ services:
       - matrix
 
   garage:
-    <<: *mem_garage
+    <<: [*mem_garage, *harden_bus]
     image: docker.io/dxflrs/garage:v2.4.1
     restart: unless-stopped
     profiles:
@@ -283,7 +333,7 @@ services:
       - matrix
 
   qdrant:
-    <<: *mem_qdrant
+    <<: [*mem_qdrant, *harden_bus]
     image: docker.io/qdrant/qdrant:v1.20.0
     restart: unless-stopped
     profiles:
@@ -307,7 +357,7 @@ services:
       - matrix
 
   ollama:
-    <<: *mem_ollama
+    <<: [*mem_ollama, *pids_limit, *security_opt]
     image: docker.io/ollama/ollama:0.40.9
     restart: unless-stopped
     profiles:
@@ -330,7 +380,7 @@ services:
       - matrix
 
   grafana:
-    <<: *mem_grafana
+    <<: [*mem_grafana, *harden_monitoring]
     image: docker.io/grafana/grafana:11.5.2
     restart: unless-stopped
     user: "0:0"
@@ -340,7 +390,7 @@ services:
       - prometheus
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change_me_grafana}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://127.0.0.1:3000}
     volumes:
@@ -353,3 +403,6 @@ services:
 networks:
   matrix:
     driver: bridge
+  matrix-db:
+    driver: bridge
+    internal: true

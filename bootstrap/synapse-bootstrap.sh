@@ -35,7 +35,21 @@ cfg["form_secret"] = os.environ["MATRIX_FORM_SECRET"]
 cfg["send_federation"] = False
 cfg["federation_domain_whitelist"] = []
 
-# Metrics for optional Prometheus profile
+# URL previews: SSRF hardening (private ranges + metadata endpoints)
+cfg["url_preview_enabled"] = True
+cfg["url_preview_ip_range_blacklist"] = [
+    "127.0.0.0/8",
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+    "100.64.0.0/10",
+    "169.254.0.0/16",
+    "::1/128",
+    "fc00::/7",
+    "fe80::/10",
+]
+
+# Metrics for optional Prometheus profile (dedicated listener; not on client :8008)
 cfg["enable_metrics"] = True
 
 # Relaxed defaults for small private servers (override in homeserver.yaml if needed)
@@ -75,14 +89,25 @@ if telegram_reg.exists():
 path.write_text(yaml.safe_dump(cfg, sort_keys=False))
 
 # Listen on all interfaces inside the container (port published on 127.0.0.1 on the host).
-for listener in cfg.get("listeners", []):
+listeners = list(cfg.get("listeners") or [])
+for listener in listeners:
     if listener.get("type") == "http" and listener.get("port") == 8008:
         listener["bind_addresses"] = ["0.0.0.0"]
         for resource in listener.get("resources", []):
-            names = list(resource.get("names") or [])
-            if "metrics" not in names:
-                names.append("metrics")
+            names = [n for n in (resource.get("names") or []) if n != "metrics"]
             resource["names"] = names
+
+metrics_listener = {
+    "port": 9000,
+    "type": "http",
+    "bind_addresses": ["0.0.0.0"],
+    "resources": [{"names": ["metrics"], "compress": False}],
+}
+if not any(
+    li.get("type") == "http" and li.get("port") == 9000 for li in listeners
+):
+    listeners.append(metrics_listener)
+cfg["listeners"] = listeners
 
 log_cfg_path = Path("/data") / f"{os.environ['SYNAPSE_SERVER_NAME']}.log.config"
 if log_cfg_path.exists():

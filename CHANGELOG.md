@@ -7,12 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Harden `compose.yaml`: `cap_drop`/`cap_add`, `security_opt: no-new-privileges`, `pids_limit`, internal `matrix-db` network for Postgres, required secrets for Telegram Postgres and Grafana admin, rootless `userns_mode: keep-id` for volume-writing services.
+- Synapse bootstrap: URL preview IP blacklist, dedicated metrics listener on port `9000` (not on client `:8008`); Prometheus scrapes `synapse:9000`.
+- CI: least-privilege `permissions`, GitHub Actions pinned by commit SHA, Trivy config scan job.
+- `load_bot_config.py`: treat empty `BOT_NAME_PREFIX` in `.env` as unset so pattern mode still works.
+
 ### Changed
 
 - **matrix-nio** `0.25.2` → `0.26.0` (vodozemac replaces python-olm for optional E2EE; the example bot does not enable encryption).
 - **pytest** `8.3.4` → `9.1.1` and **pytest-asyncio** `0.24.0` → `1.4.0` (bumped together; existing `asyncio_mode` / fixture scope settings in `pyproject.toml` retained).
 - **Valkey** image `8.1.2-alpine` → `9.1.2-alpine` (Redis-compatible; existing AOF/RDB under `DATA_DIR/valkey` upgrades in place).
 - **Garage** image `v1.1.0` → `v2.4.1` (admin API v2, `garage layout apply` after assign, health check on `/health`, bootstrap uses `/garage` in the container).
+- **Migration (existing deployments):** patch `data/synapse/homeserver.yaml` to move `metrics` off the `:8008` listener and add a `:9000` metrics listener (see `docs/SECURITY-AUDIT.md`), or re-bootstrap on a fresh data dir. Ensure nginx blocks `/_synapse/admin` and `/_synapse/metrics` on public vhosts.
 
 ### Upgrade notes
 
