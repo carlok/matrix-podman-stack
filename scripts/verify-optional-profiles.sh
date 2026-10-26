@@ -25,7 +25,7 @@ COMPOSE_PROFILES=object podman compose down -v
 ./scripts/bootstrap-object.sh
 test "$(cat "$DATA_ROOT/garage/persist-marker.txt")" = "$marker"
 curl -fsS -H "Authorization: Bearer ${GARAGE_ADMIN_TOKEN}" \
-  "http://127.0.0.1:${GARAGE_ADMIN_PORT:-13903}/v1/status" >/dev/null
+  "http://127.0.0.1:${GARAGE_ADMIN_PORT:-13903}/v2/GetClusterStatus" >/dev/null
 echo "OK: Garage persisted"
 
 echo "=== vectors (Qdrant) ==="

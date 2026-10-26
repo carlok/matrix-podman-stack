@@ -236,7 +236,7 @@ Lightweight **task queue** and **shared KV** for master/worker bots (off by defa
 | Service | Image | Use for |
 |---------|-------|---------|
 | [NATS](https://nats.io/) + JetStream | `nats:2.11.4-alpine` | Durable queues/streams — master publishes tasks, workers consume (`bot.tasks.*`) |
-| [Valkey](https://valkey.io/) | `valkey:8.1.2-alpine` | Redis-compatible KV — shared state, locks, short-lived flags |
+| [Valkey](https://valkey.io/) | `valkey:9.1.2-alpine` | Redis-compatible KV — shared state, locks, short-lived flags |
 
 Both require auth (`NATS_USER` / `NATS_PASSWORD`, `VALKEY_PASSWORD` in `.env`). They listen on the internal `matrix` network; optional localhost ports are `127.0.0.1` only (`NATS_CLIENT_PORT`, `NATS_MONITOR_PORT`, `VALKEY_PORT`).
 
@@ -250,6 +250,24 @@ COMPOSE_PROFILES=bus podman compose up -d
 Persistence (under `DATA_DIR`): `nats/jetstream/` (JetStream file store), `nats/nats.conf` (generated, chmod 600), `valkey/` (AOF/RDB + generated `valkey.conf`).
 
 Example bot (optional): set `BUS_DEMO=true`, `NATS_URL=nats://bots:PASSWORD@nats:4222`, and `VALKEY_PASSWORD` when the profile is up — on each @mention it publishes a JetStream event and writes a shared Valkey key (see `bots/example_bot/bus_hooks.py`).
+
+**Valkey 8 → 9:** Existing data under `DATA_DIR/valkey/` is read after an image upgrade; re-run `./scripts/bootstrap-bus.sh` only if you need to regenerate configs.
+
+## Object storage (optional profile `object`)
+
+[S3-compatible storage](https://garagehq.deuxfleurs.fr/) via **Garage** (`dxflrs/garage:v2.4.1`):
+
+```bash
+# set GARAGE_RPC_SECRET (openssl rand -hex 32), GARAGE_ADMIN_TOKEN, and optional GARAGE_BUCKET in .env
+./scripts/bootstrap-object.sh
+COMPOSE_PROFILES=object podman compose up -d
+```
+
+Persistence: `garage/meta/`, `garage/data/`, and generated `garage/garage.toml` (chmod 600). Health checks use `GET /health`; automation should call admin API **v2** paths (for example `/v2/GetClusterStatus`).
+
+**Garage v1 → v2:** Back up `DATA_DIR/garage/`, confirm `replication_factor` in `garage.toml`, stop all Garage containers, update the image tag in `compose.yaml`, and restart together. See [Garage’s migration guide](https://garagehq.deuxfleurs.fr/documentation/working-documents/migration-2/) and `CHANGELOG.md`.
+
+Smoke: `./scripts/verify-optional-profiles.sh` (object section) or `./scripts/bootstrap-object.sh` after `podman compose down -v`.
 
 ## Monitoring (optional)
 
@@ -310,10 +328,11 @@ Keep `bots/tokens.env` encrypted off-site.
 
 **Upgrade**:
 
-1. Review release notes for Synapse / Element / bridge images.
+1. Review release notes for Synapse / Element / bridge images (and optional profiles: Valkey, Garage, NATS, Qdrant, Ollama).
 2. Update pinned tags in `compose.yaml`.
 3. `podman compose pull && podman compose up -d`
 4. Watch `podman compose logs -f synapse` during DB migrations.
+5. Optional profiles: run `./scripts/verify-bus-persistence.sh` after Valkey upgrades; for Garage v1→v2 follow `CHANGELOG.md` and restart the `object` profile together.
 
 ## Start stack after host reboot (opt-in)
 
