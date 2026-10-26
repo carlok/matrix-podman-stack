@@ -39,6 +39,11 @@ def test_duo_enabled_truthy():
     assert duo_enabled() is True
 
 
+def test_sender_is_ignored_bot_own_user_id(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("BOT_IGNORE_MATRIX_IDS", "@blocked:example.com")
+    assert sender_is_ignored_bot("@blocked:example.com", "@bot1:example.com", "example.com") is True
+
+
 def test_sender_is_ignored_bot_with_duo_peer_exception():
     os.environ["BOT_DUO_ENABLED"] = "true"
     os.environ["BOT_DUO_PEER_MXIDS"] = "@bot2:example.com"

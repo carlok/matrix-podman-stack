@@ -230,7 +230,7 @@ services:
 
   valkey:
     <<: *mem_valkey
-    image: docker.io/valkey/valkey:8.1.2-alpine
+    image: docker.io/valkey/valkey:9.1.2-alpine
     restart: unless-stopped
     profiles:
       - bus
@@ -257,7 +257,7 @@ services:
 
   garage:
     <<: *mem_garage
-    image: docker.io/dxflrs/garage:v1.1.0
+    image: docker.io/dxflrs/garage:v2.4.1
     restart: unless-stopped
     profiles:
       - object
@@ -273,7 +273,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -q -O- --header=\"Authorization: Bearer ${GARAGE_ADMIN_TOKEN}\" http://127.0.0.1:3903/v1/health | grep -q ok || exit 1",
+          "wget -q -O- http://127.0.0.1:3903/health | grep -q operational || exit 1",
         ]
       interval: 20s
       timeout: 5s

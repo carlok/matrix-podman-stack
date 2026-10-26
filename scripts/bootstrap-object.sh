@@ -25,18 +25,20 @@ python3 "$ROOT/scripts/render_object_config.py" \
 
 COMPOSE_PROFILES=object podman compose up -d garage
 for _ in $(seq 1 40); do
-  curl -fsS -H "Authorization: Bearer ${GARAGE_ADMIN_TOKEN}" \
-    "http://127.0.0.1:${GARAGE_ADMIN_PORT:-13903}/v1/status" >/dev/null 2>&1 && break
+  curl -fsS "http://127.0.0.1:${GARAGE_ADMIN_PORT:-13903}/health" >/dev/null 2>&1 && break
   sleep 2
 done
 
-if ! podman compose --profile object exec -T garage garage status 2>/dev/null | grep -q "NO ROLE"; then
-  echo "Garage layout already configured."
-else
-  node_id="$(podman compose --profile object exec -T garage garage node id 2>/dev/null | tr -d '\r')"
-  podman compose --profile object exec -T garage garage layout assign \
+if COMPOSE_PROFILES=object podman compose exec -T garage /garage layout show 2>/dev/null \
+  | grep -q "No nodes currently have a role"; then
+  node_id="$(COMPOSE_PROFILES=object podman compose exec -T garage /garage node id -q 2>/dev/null \
+    | tr -d '\r' | cut -d@ -f1)"
+  COMPOSE_PROFILES=object podman compose exec -T garage /garage layout assign \
     -z local -c 1G "${node_id}" >/dev/null
-  podman compose --profile object exec -T garage garage bucket create "${GARAGE_BUCKET:-bot-artifacts}" >/dev/null 2>&1 || true
+  COMPOSE_PROFILES=object podman compose exec -T garage /garage layout apply --version 1 >/dev/null
+  COMPOSE_PROFILES=object podman compose exec -T garage /garage bucket create "${GARAGE_BUCKET:-bot-artifacts}" >/dev/null 2>&1 || true
+else
+  echo "Garage layout already configured."
 fi
 
 echo "Garage ready (profile: object). S3 endpoint: http://127.0.0.1:${GARAGE_S3_PORT:-13900}"
