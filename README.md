@@ -384,6 +384,25 @@ Smoke test: `./scripts/test-bot-duo.sh` (requires two bots in `bots.yaml` and `T
 | `DATA_DIR/` (default `./data/`) | All bind-mounted runtime state (gitignored) |
 | `scripts/verify-data-persistence.sh` | `down -v` survival smoke test |
 
+## Testing (unit tests and coverage)
+
+Python unit tests use **pytest** and **pytest-cov** (no live Matrix server required). Install dev dependencies and run:
+
+```bash
+python3 -m pip install -r requirements-dev.txt
+pytest --cov --cov-report=term-missing --cov-branch
+```
+
+Coverage thresholds and measured modules are defined in `pyproject.toml`. Contributors and agents should read `AGENT.md` (run tests before every commit; do not let coverage drop).
+
+Optional shell tests for `scripts/install-systemd-service.sh`:
+
+```bash
+bats tests/bats/
+```
+
+CI runs the unit-test job on every push/PR and uploads `coverage.xml` as an artifact. Current gate (measured modules in `pyproject.toml`): **59** tests, **95.51%** line / **88.57%** branch coverage overall (`fail_under` **93%** combined).
+
 ## Validate compose file
 
 ```bash

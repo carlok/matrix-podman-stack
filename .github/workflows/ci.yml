@@ -38,3 +38,30 @@ jobs:
       - name: Bot config loader
         run: |
           python3 scripts/load_bot_config.py --config bots.example.yaml --json | python3 -m json.tool
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install test dependencies
+        run: |
+          python3 -m pip install --user -r requirements-dev.txt
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Pytest with coverage
+        run: |
+          pytest --cov --cov-report=term-missing --cov-branch --cov-report=xml:coverage.xml
+          pytest --co -q | tail -n 1
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+      - name: Bats (install-systemd-service)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq bats
+          bats tests/bats/

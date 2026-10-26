@@ -1,0 +1,20 @@
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["bots/example_bot", "scripts"]
+
+[tool.coverage.run]
+branch = true
+include = [
+    "bots/example_bot/bot.py",
+    "bots/example_bot/duo.py",
+    "scripts/load_bot_config.py",
+    "scripts/matrix_testutil.py",
+]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 93
+precision = 2

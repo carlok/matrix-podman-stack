@@ -114,6 +114,77 @@ def body_mentions_user(body: str, user_id: str) -> bool:
     return f"@{localpart}" in body or user_id in body
 
 
+def event_is_live(event: RoomMessageText, started_ms: int, skew_ms: int = 10_000) -> bool:
+    ts = getattr(event, "server_timestamp", None)
+    if ts is None and hasattr(event, "source"):
+        ts = event.source.get("origin_server_ts")
+    if ts is None:
+        return True
+    return int(ts) >= started_ms - skew_ms
+
+
+async def handle_room_message_text(
+    client: AsyncClient,
+    room: MatrixRoom,
+    event: RoomMessageText,
+    *,
+    user_id: str,
+    server_name: str,
+    duo: DuoConversation | None,
+    duo_settings: DuoSettings,
+    started_ms: int,
+) -> None:
+    if event.sender == user_id:
+        return
+    if getattr(event, "msgtype", "m.text") != "m.text":
+        return
+    if not event_is_live(event, started_ms):
+        return
+
+    body = event.body.strip()
+    mentioned = body_mentions_user(body, user_id)
+    is_bot = is_bot_localpart(event.sender, server_name)
+
+    if duo and duo_settings.enabled:
+        if sender_is_ignored_bot(event.sender, user_id, server_name) and not mentioned:
+            return
+        duo_reply = duo.process(
+            room.room_id,
+            event.event_id,
+            event.sender,
+            body,
+            mentioned,
+            is_bot,
+        )
+        if duo_reply:
+            await client.room_send(
+                room.room_id,
+                "m.room.message",
+                {"msgtype": duo_reply.msgtype, "body": duo_reply.body},
+            )
+            if os.environ.get("BOT_ONE_SHOT", "").lower() in {"1", "true", "yes"}:
+                await client.close()
+            return
+        if duo_settings.enabled and duo_settings.role in {"master", "worker"}:
+            return
+
+    if sender_is_ignored_bot(event.sender, user_id, server_name):
+        return
+    text = mention_text(event, user_id)
+    if text is None:
+        return
+    await run_bus_demo(text, user_id)
+    reply = await llm_reply(text)
+    await client.room_send(
+        room.room_id,
+        "m.room.message",
+        {"msgtype": "m.text", "body": reply},
+    )
+    if os.environ.get("BOT_ONE_SHOT", "").lower() in {"1", "true", "yes"}:
+        log.info("One-shot reply sent; exiting")
+        await client.close()
+
+
 async def main() -> None:
     homeserver = os.environ.get("MATRIX_HOMESERVER_URL", "http://127.0.0.1:8008")
     user_id = os.environ["MATRIX_USER_ID"]
@@ -133,64 +204,17 @@ async def main() -> None:
         log.info("Joining invited room %s", room.room_id)
         await client.join(room.room_id)
 
-    def event_is_live(event: RoomMessageText) -> bool:
-        ts = getattr(event, "server_timestamp", None)
-        if ts is None and hasattr(event, "source"):
-            ts = event.source.get("origin_server_ts")
-        if ts is None:
-            return True
-        return int(ts) >= started_ms - 10_000
-
     async def on_message(room: MatrixRoom, event: RoomMessageText) -> None:
-        if event.sender == user_id:
-            return
-        if getattr(event, "msgtype", "m.text") != "m.text":
-            return
-        if not event_is_live(event):
-            return
-
-        body = event.body.strip()
-        mentioned = body_mentions_user(body, user_id)
-        is_bot = is_bot_localpart(event.sender, server_name)
-
-        if duo and duo_settings.enabled:
-            if sender_is_ignored_bot(event.sender, user_id, server_name) and not mentioned:
-                return
-            duo_reply = duo.process(
-                room.room_id,
-                event.event_id,
-                event.sender,
-                body,
-                mentioned,
-                is_bot,
-            )
-            if duo_reply:
-                await client.room_send(
-                    room.room_id,
-                    "m.room.message",
-                    {"msgtype": duo_reply.msgtype, "body": duo_reply.body},
-                )
-                if os.environ.get("BOT_ONE_SHOT", "").lower() in {"1", "true", "yes"}:
-                    await client.close()
-                return
-            if duo_settings.enabled and duo_settings.role in {"master", "worker"}:
-                return
-
-        if sender_is_ignored_bot(event.sender, user_id, server_name):
-            return
-        text = mention_text(event, user_id)
-        if text is None:
-            return
-        await run_bus_demo(text, user_id)
-        reply = await llm_reply(text)
-        await client.room_send(
-            room.room_id,
-            "m.room.message",
-            {"msgtype": "m.text", "body": reply},
+        await handle_room_message_text(
+            client,
+            room,
+            event,
+            user_id=user_id,
+            server_name=server_name,
+            duo=duo,
+            duo_settings=duo_settings,
+            started_ms=started_ms,
         )
-        if os.environ.get("BOT_ONE_SHOT", "").lower() in {"1", "true", "yes"}:
-            log.info("One-shot reply sent; exiting")
-            await client.close()
 
     async def join_invites_on_sync(response: SyncResponse) -> None:
         for room_id in response.rooms.invite:
