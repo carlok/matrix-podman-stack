@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from load_bot_config import env_key, load_config
+from load_bot_config import env_key, load_config, main
 
 
 def test_explicit_bot_list(tmp_path: Path):
@@ -136,3 +136,63 @@ def test_cli_missing_config_exits(tmp_path: Path):
         check=False,
     )
     assert proc.returncode != 0
+
+
+@pytest.fixture
+def _clear_bot_env_overrides(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.delenv("BOT_COUNT", raising=False)
+    monkeypatch.delenv("BOT_NAME_PREFIX", raising=False)
+
+
+def test_main_json_in_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, _clear_bot_env_overrides
+):
+    cfg = tmp_path / "bots.yaml"
+    cfg.write_text("pattern:\n  prefix: b\n  count: 1\n")
+    monkeypatch.setattr(sys, "argv", ["load_bot_config.py", "--config", str(cfg), "--json"])
+    main()
+    data = json.loads(capsys.readouterr().out)
+    assert data[0]["localpart"] == "b1"
+
+
+def test_main_print_in_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, _clear_bot_env_overrides
+):
+    cfg = tmp_path / "bots.yaml"
+    cfg.write_text("pattern:\n  prefix: z\n  count: 1\n")
+    monkeypatch.setattr(sys, "argv", ["load_bot_config.py", "--config", str(cfg)])
+    main()
+    assert "z1\t" in capsys.readouterr().out
+
+
+def test_main_uses_bot_config_env_in_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, _clear_bot_env_overrides
+):
+    cfg = tmp_path / "custom.yaml"
+    cfg.write_text("pattern:\n  prefix: envbot\n  count: 1\n")
+    monkeypatch.setenv("BOT_CONFIG", str(cfg))
+    monkeypatch.setattr(sys, "argv", ["load_bot_config.py", "--json"])
+    main()
+    assert json.loads(capsys.readouterr().out)[0]["localpart"] == "envbot1"
+
+
+def test_main_falls_back_to_bots_example(
+    monkeypatch: pytest.MonkeyPatch, capsys, _clear_bot_env_overrides
+):
+    monkeypatch.delenv("BOT_CONFIG", raising=False)
+    monkeypatch.setattr(sys, "argv", ["load_bot_config.py", "--json"])
+    main()
+    data = json.loads(capsys.readouterr().out)
+    assert data and "localpart" in data[0]
+
+
+def test_main_missing_config_exits_in_process(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["load_bot_config.py", "--config", str(tmp_path / "missing.yaml")],
+    )
+    with pytest.raises(SystemExit, match="not found"):
+        main()
