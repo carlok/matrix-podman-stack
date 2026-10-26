@@ -254,7 +254,7 @@ services:
 
   nats:
     <<: [*mem_nats, *harden_bus]
-    image: docker.io/library/nats:2.11.4-alpine
+    image: docker.io/library/nats:2.15.1-alpine
     restart: unless-stopped
     profiles:
       - bus
