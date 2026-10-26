@@ -16,7 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **matrix-nio** `0.25.2` → `0.26.0` (vodozemac replaces python-olm for optional E2EE; the example bot does not enable encryption).
+- **pytest** `8.3.4` → `9.1.1` and **pytest-asyncio** `0.24.0` → `1.4.0` (bumped together; existing `asyncio_mode` / fixture scope settings in `pyproject.toml` retained).
+- **Valkey** image `8.1.2-alpine` → `9.1.2-alpine` (Redis-compatible; existing AOF/RDB under `DATA_DIR/valkey` upgrades in place).
+- **Garage** image `v1.1.0` → `v2.4.1` (admin API v2, `garage layout apply` after assign, health check on `/health`, bootstrap uses `/garage` in the container).
 - **Migration (existing deployments):** patch `data/synapse/homeserver.yaml` to move `metrics` off the `:8008` listener and add a `:9000` metrics listener (see `docs/SECURITY-AUDIT.md`), or re-bootstrap on a fresh data dir. Ensure nginx blocks `/_synapse/admin` and `/_synapse/metrics` on public vhosts.
+
+### Upgrade notes
+
+- **Garage v1 → v2:** Back up `DATA_DIR/garage/` first. Ensure `garage.toml` uses `replication_factor` (not legacy `replication_mode`). Stop all Garage nodes, switch the image tag, and start them together. Follow the [official Garage 1.x → 2.x migration guide](https://garagehq.deuxfleurs.fr/documentation/working-documents/migration-2/). Admin HTTP calls should use `/v2/…` (for example `GetClusterStatus`) instead of most `/v1/…` endpoints.
+- **Valkey 8 → 9:** Stop Valkey, pull the new image, start again; auth and persistence settings in generated `valkey.conf` are unchanged.
 
 ## [1.0.0] - 2026-10-26
 

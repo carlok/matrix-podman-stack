@@ -39,6 +39,11 @@ def test_duo_enabled_truthy():
     assert duo_enabled() is True
 
 
+def test_sender_is_ignored_bot_own_user_id(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("BOT_IGNORE_MATRIX_IDS", "@blocked:example.com")
+    assert sender_is_ignored_bot("@blocked:example.com", "@bot1:example.com", "example.com") is True
+
+
 def test_sender_is_ignored_bot_with_duo_peer_exception():
     os.environ["BOT_DUO_ENABLED"] = "true"
     os.environ["BOT_DUO_PEER_MXIDS"] = "@bot2:example.com"
@@ -415,6 +420,174 @@ async def test_on_invite_joins_self(monkeypatch):
     event = MagicMock(state_key="@bot1:example.com")
     await invite_cb(room, event)
     client.join.assert_awaited_with("!r:ex")
+
+
+@pytest.mark.asyncio
+async def test_handle_skips_stale_event_from_other_user():
+    client = AsyncMock()
+    room = SimpleNamespace(room_id="!r:ex")
+    settings = DuoSettings(
+        enabled=False,
+        role="",
+        peer_mxids=set(),
+        max_turns=6,
+        stop_marker="[DONE]",
+        cooldown_seconds=0,
+        command_prefix="!discuss",
+        state_dir=MagicMock(),
+    )
+    stale = SimpleNamespace(
+        sender="@human:example.com",
+        event_id="e",
+        body="@bot1 hi",
+        msgtype="m.text",
+        server_timestamp=100,
+    )
+    await handle_room_message_text(
+        client,
+        room,
+        stale,
+        user_id="@bot1:example.com",
+        server_name="example.com",
+        duo=None,
+        duo_settings=settings,
+        started_ms=1_000_000,
+    )
+    client.room_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_duo_ignores_unmentioned_bot_sender(tmp_path):
+    client = AsyncMock()
+    room = SimpleNamespace(room_id="!r:ex")
+    settings = DuoSettings(
+        enabled=True,
+        role="master",
+        peer_mxids=set(),
+        max_turns=6,
+        stop_marker="[DONE]",
+        cooldown_seconds=0,
+        command_prefix="!discuss",
+        state_dir=tmp_path,
+    )
+    duo = DuoConversation(settings, "@bot1:example.com")
+    event = SimpleNamespace(
+        sender="@bot2:example.com",
+        event_id="e1",
+        body="not for you",
+        msgtype="m.text",
+        server_timestamp=9_999_999_999_999,
+    )
+    await handle_room_message_text(
+        client,
+        room,
+        event,
+        user_id="@bot1:example.com",
+        server_name="example.com",
+        duo=duo,
+        duo_settings=settings,
+        started_ms=9_999_999_999_000,
+    )
+    client.room_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_duo_one_shot_closes_client(tmp_path, monkeypatch):
+    monkeypatch.setenv("BOT_ONE_SHOT", "true")
+    client = AsyncMock()
+    client.close = AsyncMock()
+    room = SimpleNamespace(room_id="!r:ex")
+    settings = DuoSettings(
+        enabled=True,
+        role="master",
+        peer_mxids={"@bot2:example.com"},
+        max_turns=6,
+        stop_marker="[DONE]",
+        cooldown_seconds=0,
+        command_prefix="!discuss",
+        state_dir=tmp_path,
+    )
+    duo = DuoConversation(settings, "@bot1:example.com")
+    event = SimpleNamespace(
+        sender="@human:example.com",
+        event_id="e1",
+        body="!discuss topic",
+        msgtype="m.text",
+        server_timestamp=9_999_999_999_999,
+    )
+    await handle_room_message_text(
+        client,
+        room,
+        event,
+        user_id="@bot1:example.com",
+        server_name="example.com",
+        duo=duo,
+        duo_settings=settings,
+        started_ms=9_999_999_999_000,
+    )
+    client.room_send.assert_awaited()
+    client.close.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_handle_ignores_other_bots_when_not_duo():
+    client = AsyncMock()
+    room = SimpleNamespace(room_id="!r:ex")
+    settings = DuoSettings(
+        enabled=False,
+        role="",
+        peer_mxids=set(),
+        max_turns=6,
+        stop_marker="[DONE]",
+        cooldown_seconds=0,
+        command_prefix="!discuss",
+        state_dir=MagicMock(),
+    )
+    event = SimpleNamespace(
+        sender="@bot2:example.com",
+        event_id="e",
+        body="hello",
+        msgtype="m.text",
+        server_timestamp=9_999_999_999_999,
+    )
+    await handle_room_message_text(
+        client,
+        room,
+        event,
+        user_id="@bot1:example.com",
+        server_name="example.com",
+        duo=None,
+        duo_settings=settings,
+        started_ms=9_999_999_999_000,
+    )
+    client.room_send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_on_invite_ignores_other_user(monkeypatch):
+    monkeypatch.setenv("MATRIX_USER_ID", "@bot1:example.com")
+    monkeypatch.setenv("MATRIX_ACCESS_TOKEN", "tok")
+
+    client = MagicMock()
+    client.user_id = "@bot1:example.com"
+    client.join = AsyncMock()
+    client.sync_forever = AsyncMock(side_effect=asyncio.CancelledError)
+    client.add_event_callback = MagicMock()
+    client.add_response_callback = MagicMock()
+
+    with patch("bot.AsyncClient", return_value=client):
+        from bot import main
+
+        try:
+            await main()
+        except asyncio.CancelledError:
+            pass
+
+    invite_cb = client.add_event_callback.call_args_list[0][0][0]
+    room = MagicMock(room_id="!r:ex")
+    event = MagicMock(state_key="@other:example.com")
+    await invite_cb(room, event)
+    client.join.assert_not_awaited()
 
 
 @pytest.mark.asyncio

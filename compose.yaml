@@ -233,7 +233,7 @@ services:
 
   prometheus:
     <<: [*mem_prometheus, *harden_monitoring, *podman_userns]
-    image: docker.io/prom/prometheus:v3.5.0
+    image: docker.io/prom/prometheus:v3.15.1
     restart: unless-stopped
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     profiles:
@@ -280,7 +280,7 @@ services:
 
   valkey:
     <<: [*mem_valkey, *harden_bus]
-    image: docker.io/valkey/valkey:8.1.2-alpine
+    image: docker.io/valkey/valkey:9.1.2-alpine
     restart: unless-stopped
     profiles:
       - bus
@@ -307,7 +307,7 @@ services:
 
   garage:
     <<: [*mem_garage, *harden_bus]
-    image: docker.io/dxflrs/garage:v1.1.0
+    image: docker.io/dxflrs/garage:v2.4.1
     restart: unless-stopped
     profiles:
       - object
@@ -323,7 +323,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -q -O- --header=\"Authorization: Bearer ${GARAGE_ADMIN_TOKEN}\" http://127.0.0.1:3903/v1/health | grep -q ok || exit 1",
+          "wget -q -O- http://127.0.0.1:3903/health | grep -q operational || exit 1",
         ]
       interval: 20s
       timeout: 5s
@@ -334,7 +334,7 @@ services:
 
   qdrant:
     <<: [*mem_qdrant, *harden_bus]
-    image: docker.io/qdrant/qdrant:v1.13.5
+    image: docker.io/qdrant/qdrant:v1.20.0
     restart: unless-stopped
     profiles:
       - vectors
@@ -358,7 +358,7 @@ services:
 
   ollama:
     <<: [*mem_ollama, *pids_limit, *security_opt]
-    image: docker.io/ollama/ollama:0.6.8
+    image: docker.io/ollama/ollama:0.40.9
     restart: unless-stopped
     profiles:
       - llm
