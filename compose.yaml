@@ -257,7 +257,7 @@ services:
 
   garage:
     <<: *mem_garage
-    image: docker.io/dxflrs/garage:v1.1.0
+    image: docker.io/dxflrs/garage:v2.4.1
     restart: unless-stopped
     profiles:
       - object
