@@ -182,7 +182,7 @@ services:
 
   prometheus:
     <<: *mem_prometheus
-    image: docker.io/prom/prometheus:v3.5.0
+    image: docker.io/prom/prometheus:v3.15.1
     restart: unless-stopped
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
     profiles:
