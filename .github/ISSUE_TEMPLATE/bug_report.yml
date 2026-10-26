@@ -1,0 +1,64 @@
+name: Bug report
+description: Something is broken or incorrect in the stack, scripts, or tests
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Do **not** include secrets, `.env` contents, or tokens from `data/`.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected instead.
+      placeholder: Clear steps and observed vs expected behavior.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Commands, compose profiles, and versions if known.
+      placeholder: |
+        1. ...
+        2. ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Commit or tag
+      description: `git rev-parse HEAD` or release tag, if known.
+      placeholder: main @ abc1234
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Synapse / Postgres (core)
+        - Element Web
+        - Telegram bridge
+        - Optional profiles (bus, monitoring, object, vectors, llm)
+        - Bots / Python helpers
+        - Shell scripts / bootstrap
+        - CI / tests
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Pre-submit
+      options:
+        - label: I searched existing issues for duplicates
+          required: true
+        - label: I removed secrets and host-specific details from this report
+          required: true
