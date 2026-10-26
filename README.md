@@ -431,3 +431,9 @@ On rootless Podman, Element’s container runs as `root` inside the namespace so
 ## Security / public repository
 
 This repo is public. Only `.env.example`, `bots.example.yaml`, and templates are committed. Keep `.env`, `bots.yaml`, `data/`, and `data/bots/tokens.env` local and out of git.
+
+## License
+
+Copyright 2026 Carlo Perassi.
+
+Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full text.
