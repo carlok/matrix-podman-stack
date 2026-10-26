@@ -87,6 +87,14 @@ def test_cli_json_output(tmp_path: Path):
     assert data[0]["localpart"] == "b1"
 
 
+def test_empty_env_prefix_uses_yaml_pattern(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("BOT_NAME_PREFIX", "")
+    cfg = tmp_path / "bots.yaml"
+    cfg.write_text("pattern:\n  prefix: bot\n  count: 2\n")
+    bots = load_config(cfg)
+    assert [b["localpart"] for b in bots] == ["bot1", "bot2"]
+
+
 def test_empty_prefix_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.delenv("BOT_NAME_PREFIX", raising=False)
     cfg = tmp_path / "bots.yaml"

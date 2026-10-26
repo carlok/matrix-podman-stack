@@ -191,6 +191,11 @@ server {
     # ssl_certificate ...;
     # ssl_certificate_key ...;
 
+    # Do not expose Synapse admin API or Prometheus metrics via the public vhost.
+    location ~ ^/_synapse/(admin|metrics) {
+        return 404;
+    }
+
     location / {
         proxy_pass http://127.0.0.1:8008;
         proxy_set_header X-Forwarded-For $remote_addr;
@@ -204,6 +209,12 @@ server {
 server {
     listen 443 ssl http2;
     server_name chat.example.com;
+
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    # Tighten Content-Security-Policy for your deployment (Element needs script/style from its origin).
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://matrix.example.com; frame-ancestors 'self';" always;
 
     location / {
         proxy_pass http://127.0.0.1:8080;
@@ -431,6 +442,10 @@ On rootless Podman, Element’s container runs as `root` inside the namespace so
 ## Security / public repository
 
 This repo is public. Only `.env.example`, `bots.example.yaml`, and templates are committed. Keep `.env`, `bots.yaml`, `data/`, and `data/bots/tokens.env` local and out of git.
+
+Compose applies baseline container hardening (`cap_drop`, `no-new-privileges`, `pids_limit`, internal DB network, `127.0.0.1` port binds). See [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md) for the full audit and migration notes (for example Synapse metrics on port `9000` inside the stack network).
+
+Rootless Podman: services that write bind mounts use `userns_mode: keep-id` with `HOST_UID` / `HOST_GID` (see `compose.yaml`).
 
 ## License
 

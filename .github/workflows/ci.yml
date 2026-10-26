@@ -5,11 +5,14 @@ on:
     branches: [main, "cursor/**"]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   lint-and-validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install tools
         run: |
@@ -42,7 +45,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install test dependencies
         run: |
@@ -55,7 +58,7 @@ jobs:
           pytest --co -q | tail -n 1
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-report
           path: coverage.xml
@@ -65,3 +68,16 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq bats
           bats tests/bats/
+
+  config-security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Trivy config scan (compose)
+        uses: aquasecurity/trivy-action@8f28faec26515256b6d22074d1d2a8986f4cbd87
+        with:
+          scan-type: config
+          scan-ref: compose.yaml
+          severity: HIGH,CRITICAL
+          exit-code: 0

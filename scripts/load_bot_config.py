@@ -49,7 +49,13 @@ def load_config(path: Path) -> list[dict[str, str]]:
         return bots
 
     pattern = data.get("pattern") or {}
-    prefix = os.environ.get("BOT_NAME_PREFIX", pattern.get("prefix", "bot")).strip()
+    env_prefix = os.environ.get("BOT_NAME_PREFIX", "").strip()
+    if env_prefix:
+        prefix = env_prefix
+    elif "prefix" in pattern:
+        prefix = str(pattern.get("prefix") or "").strip()
+    else:
+        prefix = "bot"
     count = _env_int("BOT_COUNT")
     if count is None:
         count = int(pattern.get("count", 1))

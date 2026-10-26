@@ -7,4 +7,4 @@ scrape_configs:
     metrics_path: /_synapse/metrics
     static_configs:
       - targets:
-          - synapse:8008
+          - synapse:9000
