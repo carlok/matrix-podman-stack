@@ -111,6 +111,7 @@ def main() -> None:
             "SYNAPSE_SERVER_NAME": args.server_name,
             "BOT_ONE_SHOT": "true",
             "BOT_IGNORE_OTHER_BOTS": "true",
+            "BOT_DUO_ENABLED": "false",
         }
     )
     ignore = os.environ.get("BOT_IGNORE_MATRIX_IDS", "")

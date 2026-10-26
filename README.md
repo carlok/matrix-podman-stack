@@ -315,9 +315,59 @@ Keep `bots/tokens.env` encrypted off-site.
 3. `podman compose pull && podman compose up -d`
 4. Watch `podman compose logs -f synapse` during DB migrations.
 
-## systemd Quadlets (optional)
+## Start stack after host reboot (opt-in)
 
-You can convert services to [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html): one `.container` file per service, `Wants=network-online.target`, volumes with `:Z` for rootless SELinux, and `PublishPort=127.0.0.1:8008:8008` on Synapse/Element. Keep the same env files and volume paths as `compose.yaml`.
+Every long-running service in `compose.yaml` uses **`restart: unless-stopped`** so Podman can bring containers back after a daemon restart. One-shot **`synapse-bootstrap`** uses **`restart: "no"`** (run only via `COMPOSE_PROFILES=bootstrap`).
+
+### Option A — Podman restart service (simple)
+
+Restarts **all** containers on the host that were running with a restart policy (not only this stack).
+
+**Rootless:**
+
+```bash
+loginctl enable-linger "$USER"
+systemctl --user enable --now podman-restart.service
+```
+
+**Rootful:**
+
+```bash
+sudo systemctl enable --now podman-restart.service
+```
+
+After reboot, run `podman ps` to confirm containers are up. A full host reboot was not exercised in CI; behavior depends on your Podman/systemd version.
+
+### Option B — systemd user unit for this compose project
+
+Generates `~/.config/systemd/user/matrix-podman-stack.service` (honours `COMPOSE_PROFILES` from `.env` or `--profiles`):
+
+```bash
+./scripts/install-systemd-service.sh
+systemctl --user daemon-reload
+systemctl --user enable --now matrix-podman-stack.service
+loginctl enable-linger "$USER"   # rootless: start at boot without login session
+```
+
+Remove with `./scripts/install-systemd-service.sh --uninstall`.
+
+Verify restart policy on a container: `podman inspect --format '{{.HostConfig.RestartPolicy.Name}}' <container>` → `unless-stopped`.
+
+### Advanced: Quadlets
+
+You can also convert services to [Quadlets](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html) (one unit per container). Same volume paths and `127.0.0.1` publishes as `compose.yaml`.
+
+## Bot duo mode (optional)
+
+Default behavior stays safe: **`BOT_IGNORE_OTHER_BOTS=true`** and normal **@mention** replies only.
+
+Enable a bounded **master/worker** thread (deterministic stub text, LLM hook unchanged):
+
+1. Run two bot processes (e.g. `bot1` master, `bot2` worker) with `BOT_DUO_ENABLED=true`, `BOT_IGNORE_OTHER_BOTS=false`, and reciprocal `BOT_DUO_PEER_MXIDS`.
+2. In a room with both bots, a human sends **`!discuss <topic>`** (prefix configurable).
+3. Guards: **`BOT_MAX_TURNS`**, stop marker **`BOT_DUO_STOP_MARKER`** (default `[DONE]`), **cooldown**, **event dedupe**, **human message resets** the thread, meta replies as **`m.notice`**, state under **`BOT_DUO_STATE_DIR`** (default `data/bots/duo-state`).
+
+Smoke test: `./scripts/test-bot-duo.sh` (requires two bots in `bots.yaml` and `TEST_ADMIN_PASSWORD`).
 
 ## Layout
 
@@ -325,6 +375,8 @@ You can convert services to [Quadlets](https://docs.podman.io/en/latest/markdown
 |------|---------|
 | `compose.yaml` | Core stack + profiles `bootstrap`, `telegram`, `monitoring`, `bus`, `object`, `vectors`, `llm` |
 | `scripts/collect-resource-stats.sh` | `podman stats` snapshot for sizing |
+| `scripts/install-systemd-service.sh` | Optional systemd user unit for `podman compose up -d` at boot |
+| `scripts/test-bot-duo.sh` | Duo mode E2E (turn cap + stop marker) |
 | `scripts/bootstrap.sh` | One-shot Synapse + Element config generation |
 | `bots.example.yaml` | Sample bot list / pattern (copy to `bots.yaml`) |
 | `scripts/create-bots.sh` | Provision bot users from `bots.yaml` |

@@ -1,6 +1,8 @@
 # Private Matrix stack for rootless Podman Compose.
 # All persistent state is on the host under DATA_DIR (bind mounts only).
 # Reverse proxy (nginx) runs on the host — services bind to 127.0.0.1 only.
+# Long-running services use restart: unless-stopped (survive daemon restart with podman-restart.service).
+# One-shot jobs (profile bootstrap) use restart: "no".
 
 name: matrix-podman-stack
 
@@ -152,6 +154,7 @@ services:
 
   synapse-bootstrap:
     image: *synapse_image
+    restart: "no"
     profiles:
       - bootstrap
     user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
