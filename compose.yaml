@@ -230,7 +230,7 @@ services:
 
   valkey:
     <<: *mem_valkey
-    image: docker.io/valkey/valkey:8.1.2-alpine
+    image: docker.io/valkey/valkey:9.1.2-alpine
     restart: unless-stopped
     profiles:
       - bus
