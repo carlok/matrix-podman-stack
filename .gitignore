@@ -1,0 +1,33 @@
+# Environment and secrets
+.env
+*.pem
+*.key
+
+# Generated / runtime data
+data/
+!data/.gitkeep
+
+# Bot credentials (never commit)
+**/tokens.env
+**/bots.env
+data/bots/
+**/admin.token
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv-bot/
+.venv-bot-test/
+venv/
+bots.yaml
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.json
+coverage.xml
+
+# Editor
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,18 @@
+# Bot account definitions for scripts/create-bots.sh
+# Copy to bots.yaml and edit, or set BOT_CONFIG in .env to another path.
+#
+# Use EITHER an explicit list OR a generated pattern — not both.
+
+# --- Option A: explicit bot list (recommended for named roles) ---
+# bots:
+#   - localpart: coordinator
+#     display_name: Coordinator
+#   - localpart: worker-alpha
+#     display_name: Worker Alpha
+
+# --- Option B: generate localparts from a prefix + count (small default) ---
+pattern:
+  prefix: bot
+  count: 2
+  # Optional; {index} is 1-based. Omit to use the localpart as display name.
+  display_name_template: "Bot {index}"
