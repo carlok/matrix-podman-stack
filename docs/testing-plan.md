@@ -97,6 +97,7 @@ Podman **auto-restart after daemon reboot** is host-level (`podman-restart.servi
 
 - **Unit job:** `pytest -m "not integration"` + coverage ≥ 95%.
 - **Integration workflow:** `.github/workflows/integration.yml`, `ubuntu-latest`, Podman, **matrix** per area (postgres, garage, monitoring, bus, optional-*), pinned action SHAs, timeouts, log dump on failure.
+- **Compose on CI:** tests and `scripts/compose_stack.sh` use `podman-compose` (not the docker-compose plugin). Integration `.env` sets `HOST_UID` / `HOST_GID` to the runner user so Synapse bootstrap can write `homeserver.yaml`.
 - **Triggers:** PRs touching `compose.yaml`, `scripts/`, `bots/`, `tests/integration/`, workflows; `workflow_dispatch`; weekly schedule.
 
 ## Not automated (and why)
