@@ -14,15 +14,23 @@ This repository ships Python helpers (example bot, config loader) and shell auto
 
 ```bash
 python3 -m pip install -r requirements-dev.txt
-pytest --cov --cov-report=term-missing --cov-branch
+pytest -m "not integration" --cov --cov-report=term-missing --cov-branch
+```
+
+Integration tests (Podman, real containers) live under `tests/integration/`:
+
+```bash
+pytest -m integration -v   # long-running; see docs/testing-plan.md
 ```
 
 Coverage is enforced via `pyproject.toml` (`fail_under`). The measured modules are:
 
 - `bots/example_bot/bot.py`
 - `bots/example_bot/duo.py`
+- `bots/example_bot/bus_hooks.py`
 - `scripts/load_bot_config.py`
 - `scripts/matrix_testutil.py`
+- `scripts/postgres_upgrade_util.py`
 
 Optional shell tests:
 

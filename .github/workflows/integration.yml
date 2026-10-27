@@ -1,0 +1,72 @@
+name: Integration
+
+on:
+  pull_request:
+    paths:
+      - "compose.yaml"
+      - "scripts/**"
+      - "bots/**"
+      - "tests/integration/**"
+      - "bootstrap/**"
+      - "monitoring/**"
+      - ".github/workflows/integration.yml"
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: compose-contract
+            pytest_args: "tests/integration/test_compose_contract.py"
+          - name: bus
+            pytest_args: "tests/integration/test_bus_jetstream.py"
+          - name: monitoring
+            pytest_args: "tests/integration/test_monitoring.py"
+          - name: garage-upgrade
+            pytest_args: "tests/integration/test_garage_upgrade.py"
+          - name: postgres-migration
+            pytest_args: "tests/integration/test_postgres_migration.py -k 'schema or telegram or dry_run'"
+          - name: optional-element
+            pytest_args: "tests/integration/test_optional_profiles.py::test_element_serves_config"
+          - name: optional-telegram
+            pytest_args: "tests/integration/test_optional_profiles.py::test_telegram_bridge_registers_appservice"
+          - name: optional-qdrant
+            pytest_args: "tests/integration/test_optional_profiles.py::test_qdrant_collection_upsert_search"
+          - name: optional-ollama
+            pytest_args: "tests/integration/test_optional_profiles.py::test_ollama_api_up"
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install Podman and test deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq podman podman-compose python3-pip
+          python3 -m pip install --user -r requirements-dev.txt
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Pull compose images (best effort)
+        run: |
+          cp .env.example .env
+          podman compose pull --quiet || true
+
+      - name: Run integration tests (${{ matrix.name }})
+        env:
+          PYTEST_ADDOPTS: "-v --timeout=1800"
+        run: |
+          pytest -m integration ${{ matrix.pytest_args }}
+
+      - name: Dump compose logs on failure
+        if: failure()
+        run: |
+          podman compose ps -a || true
+          podman compose logs --tail=300 || true

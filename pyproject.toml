@@ -3,6 +3,10 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = ["tests"]
 pythonpath = ["bots/example_bot", "scripts"]
+markers = [
+    "integration: Podman Compose end-to-end tests (slow; excluded from default unit CI)",
+]
+timeout = 1200
 
 [tool.coverage.run]
 branch = true

@@ -62,6 +62,15 @@ set +a
 source "$ROOT/scripts/data_paths.sh"
 DATA_ROOT="$(data_root "$ROOT")"
 
+MIGRATION_ENV_FILE="${DATA_ROOT}/.env.postgres-migration"
+grep -vE '^POSTGRES_(SYNAPSE|TELEGRAM)_(IMAGE|MOUNT)=' .env >"$MIGRATION_ENV_FILE"
+{
+  echo "POSTGRES_SYNAPSE_IMAGE=docker.io/library/postgres:18.6-bookworm"
+  echo "POSTGRES_SYNAPSE_MOUNT=/var/lib/postgresql"
+  echo "POSTGRES_TELEGRAM_IMAGE=docker.io/library/postgres:18.6-bookworm"
+  echo "POSTGRES_TELEGRAM_MOUNT=/var/lib/postgresql"
+} >>"$MIGRATION_ENV_FILE"
+
 timestamp_utc() {
   date -u +"%Y%m%dT%H%M%SZ"
 }
@@ -111,7 +120,7 @@ write_upgrade_marker() {
 }
 
 compose() {
-  podman compose "$@"
+  podman compose --env-file "$MIGRATION_ENV_FILE" "$@"
 }
 
 compose_with_profiles() {
@@ -183,10 +192,12 @@ restore_pg18() {
     return 0
   fi
 
+  compose rm -sf "$compose_service" 2>/dev/null || true
+  podman rm -f "matrix-podman-stack_${compose_service}_1" 2>/dev/null || true
   if [[ -n "$profiles" ]]; then
-    COMPOSE_PROFILES="$profiles" compose up -d "$compose_service"
+    COMPOSE_PROFILES="$profiles" compose up -d --force-recreate "$compose_service"
   else
-    compose up -d "$compose_service"
+    compose up -d --force-recreate "$compose_service"
   fi
 
   for _ in $(seq 1 60); do

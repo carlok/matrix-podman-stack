@@ -54,7 +54,7 @@ jobs:
 
       - name: Pytest with coverage
         run: |
-          pytest --cov --cov-report=term-missing --cov-branch --cov-report=xml:coverage.xml
+          pytest -m "not integration" --cov --cov-report=term-missing --cov-branch --cov-report=xml:coverage.xml
           pytest --co -q | tail -n 1
 
       - name: Upload coverage report
