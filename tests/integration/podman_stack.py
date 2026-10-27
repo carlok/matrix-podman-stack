@@ -356,6 +356,7 @@ def grafana_prometheus_query(admin_password: str) -> bool:
         prom_body = json.dumps(
             {
                 "name": "Prometheus",
+                "uid": "ci-prometheus",
                 "type": "prometheus",
                 "url": "http://prometheus:9090",
                 "access": "proxy",
@@ -370,19 +371,31 @@ def grafana_prometheus_query(admin_password: str) -> bool:
         )
         with urllib.request.urlopen(create, timeout=30):
             pass
-    prom_id = prom["id"] if prom else None
-    if prom_id is None:
         with urllib.request.urlopen(ds_req, timeout=30) as resp:
             datasources = json.loads(resp.read().decode())
-        prom_id = next((d["id"] for d in datasources if d.get("type") == "prometheus"), None)
-    assert prom_id is not None
+        prom = next((d for d in datasources if d.get("type") == "prometheus"), None)
+    assert prom is not None
     enc_query = urllib.parse.quote('up{job="synapse"}', safe="")
-    proxy_url = f"http://127.0.0.1:3000/api/datasources/proxy/{prom_id}/api/v1/query?query={enc_query}"
-    q = urllib.request.Request(proxy_url, headers=headers)
-    with urllib.request.urlopen(q, timeout=60) as resp:
-        payload = json.loads(resp.read().decode())
-    results = payload.get("data", {}).get("result", [])
-    return payload.get("status") == "success" and bool(results)
+    proxy_paths = []
+    if prom.get("uid"):
+        proxy_paths.append(
+            f"http://127.0.0.1:3000/api/datasources/uid/{prom['uid']}/proxy/api/v1/query?query={enc_query}"
+        )
+    if prom.get("id") is not None:
+        proxy_paths.append(
+            f"http://127.0.0.1:3000/api/datasources/proxy/{prom['id']}/api/v1/query?query={enc_query}"
+        )
+    for proxy_url in proxy_paths:
+        try:
+            q = urllib.request.Request(proxy_url, headers=headers)
+            with urllib.request.urlopen(q, timeout=60) as resp:
+                payload = json.loads(resp.read().decode())
+            results = payload.get("data", {}).get("result", [])
+            if payload.get("status") == "success" and results:
+                return True
+        except urllib.error.HTTPError:
+            continue
+    return False
 
 
 def rm_tree(path: Path) -> None:

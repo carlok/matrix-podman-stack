@@ -31,7 +31,7 @@ if [[ ! -f "$BRIDGE_DATA/config.yaml" ]]; then
   echo "Generating mautrix-telegram config..."
   podman run --rm \
     -v "$BRIDGE_DATA:/data:Z" \
-    --entrypoint /usr/local/bin/mautrix-telegram \
+    --entrypoint /usr/bin/mautrix-telegram \
     dock.mau.dev/mautrix/telegram:v0.2610.0 \
     -g -c /data/config.yaml -r /data/registration.yaml
 fi
