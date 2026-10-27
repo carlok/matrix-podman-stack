@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Grafana** image `11.5.2` → `13.2.4` (monitoring profile; env vars unchanged; SQLite data under `DATA_DIR/grafana` migrates on first start).
+- **Postgres** image `16.9-bookworm` → `16.15-bookworm` (Synapse and Telegram services; patch release within major 16).
+- Dependabot: ignore semver-major updates for `library/postgres` so Compose stays on 16.x until an intentional major upgrade.
+
+### Upgrade notes
+
+- **Postgres major version (future):** Bumping the image major (for example 16 → 17) is not a simple tag change. Plan for `pg_upgrade` or a full logical dump and restore before pointing Synapse or mautrix-telegram at a new data directory.
+
 ### Security
 
 - Harden `compose.yaml`: `cap_drop`/`cap_add`, `security_opt: no-new-privileges`, `pids_limit`, internal `matrix-db` network for Postgres, required secrets for Telegram Postgres and Grafana admin, rootless `userns_mode: keep-id` for volume-writing services.
