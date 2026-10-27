@@ -12,7 +12,7 @@ Designed for a small private group with humans and automation accounts (bots). B
 - DNS for `SYNAPSE_SERVER_NAME` (and Element hostname) pointing at your server
 - Host **nginx** (or similar) to TLS-terminate and reverse-proxy to local ports
 
-Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `16.9-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.5.0`, Grafana `11.5.2`.
+Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `16.15-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.5.0`, Grafana `13.2.4`.
 
 ## Sizing (CPU / RAM)
 
@@ -339,7 +339,7 @@ Keep `bots/tokens.env` encrypted off-site.
 
 **Upgrade**:
 
-1. Review release notes for Synapse / Element / bridge images (and optional profiles: Valkey, Garage, NATS, Qdrant, Ollama).
+1. Review release notes for Synapse / Element / bridge images (and optional profiles: Valkey, Garage, NATS, Qdrant, Ollama). Postgres **16.x** patch tags are safe to pull in place; a new Postgres **major** needs `pg_upgrade` or dump/restore (see `CHANGELOG.md`).
 2. Update pinned tags in `compose.yaml`.
 3. `podman compose pull && podman compose up -d`
 4. Watch `podman compose logs -f synapse` during DB migrations.
