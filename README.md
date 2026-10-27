@@ -12,7 +12,7 @@ Designed for a small private group with humans and automation accounts (bots). B
 - DNS for `SYNAPSE_SERVER_NAME` (and Element hostname) pointing at your server
 - Host **nginx** (or similar) to TLS-terminate and reverse-proxy to local ports
 
-Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `18.6-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.5.0`, Grafana `13.2.4`.
+Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `18.6-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.15.1`, Grafana `13.2.4`, NATS `2.15.1-alpine`, Valkey `9.1.3-alpine`, Garage `v2.5.0`, Qdrant `v1.20.0`, Ollama `0.40.11`.
 
 ## Sizing (CPU / RAM)
 
