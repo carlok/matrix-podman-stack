@@ -10,7 +10,6 @@ cd "$ROOT"
 
 POSTGRES_16_IMAGE="${POSTGRES_16_IMAGE:-docker.io/library/postgres:16.15-bookworm}"
 POSTGRES_LEGACY_MOUNT="/var/lib/postgresql/data"
-POSTGRES_18_MOUNT="/var/lib/postgresql"
 PROBE_IMAGE="${PROBE_IMAGE:-docker.io/library/busybox:1.36.1}"
 UPGRADE_MARKER_NAME=".postgres-upgraded-to-18"
 
@@ -148,7 +147,8 @@ dump_legacy_16() {
     return 0
   fi
 
-  local dump_container="pg16-dump-${volume_rel}-$(date +%s)"
+  local dump_container
+  dump_container="pg16-dump-${volume_rel}-$(date +%s)"
   podman rm -f "$dump_container" 2>/dev/null || true
   podman run -d --name "$dump_container" \
     -e POSTGRES_USER="$pg_user" \
@@ -190,8 +190,7 @@ restore_pg18() {
     compose up -d "$compose_service"
   fi
 
-  local i
-  for i in $(seq 1 60); do
+  for _ in $(seq 1 60); do
     if compose_with_profiles "$profiles" exec -T "$compose_service" pg_isready -U "$pg_user" >/dev/null 2>&1; then
       break
     fi
