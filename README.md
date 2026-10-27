@@ -12,7 +12,7 @@ Designed for a small private group with humans and automation accounts (bots). B
 - DNS for `SYNAPSE_SERVER_NAME` (and Element hostname) pointing at your server
 - Host **nginx** (or similar) to TLS-terminate and reverse-proxy to local ports
 
-Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `16.15-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.5.0`, Grafana `13.2.4`.
+Pinned images (see `compose.yaml`): Synapse `v1.163.2`, Element `v1.12.32`, Postgres `18.6-bookworm`, mautrix-telegram `v0.2610.0`, Prometheus `v3.5.0`, Grafana `13.2.4`.
 
 ## Sizing (CPU / RAM)
 
@@ -299,8 +299,8 @@ All state lives on the host under **`DATA_DIR`** (default `./data`, set in `.env
 
 | Host path (under `DATA_DIR`) | Contents |
 |------------------------------|----------|
-| `postgres-synapse/` | Synapse Postgres data directory |
-| `postgres-telegram/` | mautrix-telegram Postgres (profile `telegram`) |
+| `postgres-synapse/` | Synapse Postgres volume (`18/docker` PGDATA on Postgres 18+) |
+| `postgres-telegram/` | mautrix-telegram Postgres (profile `telegram`; same layout) |
 | `synapse/` | `homeserver.yaml`, signing key, `homeserver.log`, `media_store/`, `uploads/` |
 | `element/config.json` | Element Web client config |
 | `mautrix-telegram/` | Bridge config, registration, session DB files |
@@ -339,7 +339,7 @@ Keep `bots/tokens.env` encrypted off-site.
 
 **Upgrade**:
 
-1. Review release notes for Synapse / Element / bridge images (and optional profiles: Valkey, Garage, NATS, Qdrant, Ollama). Postgres **16.x** patch tags are safe to pull in place; a new Postgres **major** needs `pg_upgrade` or dump/restore (see `CHANGELOG.md`).
+1. Review release notes for Synapse / Element / bridge images (and optional profiles: Valkey, Garage, NATS, Qdrant, Ollama). Postgres **18.x** patch tags are safe to pull in place. Upgrading from an older Postgres **major** (for example 16) requires `./scripts/upgrade-postgres.sh` — see [docs/postgres-upgrade.md](docs/postgres-upgrade.md).
 2. Update pinned tags in `compose.yaml`.
 3. `podman compose pull && podman compose up -d`
 4. Watch `podman compose logs -f synapse` during DB migrations.

@@ -20,7 +20,7 @@ updates:
       interval: weekly
     open-pull-requests-limit: 5
     ignore:
-      # Postgres major upgrades require pg_upgrade or dump/restore; stay on 16.x patches.
+      # Postgres major upgrades need a planned migration (see docs/postgres-upgrade.md).
       - dependency-name: library/postgres
         update-types:
           - version-update:semver-major

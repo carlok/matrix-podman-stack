@@ -83,7 +83,7 @@ x-podman-userns: &podman_userns
 services:
   postgres-synapse:
     <<: [*mem_postgres, *harden_postgres]
-    image: docker.io/library/postgres:16.15-bookworm
+    image: docker.io/library/postgres:18.6-bookworm
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${SYNAPSE_POSTGRES_USER:-synapse}
@@ -91,7 +91,7 @@ services:
       POSTGRES_DB: ${SYNAPSE_POSTGRES_DB:-synapse}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
-      - ${DATA_DIR:-./data}/postgres-synapse:/var/lib/postgresql/data:Z
+      - ${DATA_DIR:-./data}/postgres-synapse:/var/lib/postgresql:Z
     healthcheck:
       test:
         [
@@ -161,7 +161,7 @@ services:
 
   postgres-telegram:
     <<: [*mem_postgres, *harden_postgres]
-    image: docker.io/library/postgres:16.15-bookworm
+    image: docker.io/library/postgres:18.6-bookworm
     restart: unless-stopped
     profiles:
       - telegram
@@ -171,7 +171,7 @@ services:
       POSTGRES_DB: ${TELEGRAM_POSTGRES_DB:-mautrix_telegram}
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     volumes:
-      - ${DATA_DIR:-./data}/postgres-telegram:/var/lib/postgresql/data:Z
+      - ${DATA_DIR:-./data}/postgres-telegram:/var/lib/postgresql:Z
     healthcheck:
       test:
         [
