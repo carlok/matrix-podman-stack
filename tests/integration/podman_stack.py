@@ -234,6 +234,8 @@ def apply_compose_postgres_env(overrides: dict[str, str] | None) -> None:
 def write_integration_env(data_dir: Path, *, server_name: str = "ci.integration.test") -> None:
     """Materialize .env for an isolated DATA_DIR (non-secret test values)."""
     example = (ROOT / ".env.example").read_text()
+    uid = os.getuid()
+    gid = os.getgid()
     hex32 = secrets.token_hex(32)
     rpc = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     replacements = {
@@ -257,10 +259,13 @@ def write_integration_env(data_dir: Path, *, server_name: str = "ci.integration.
     text = example
     for old, new in replacements.items():
         text = text.replace(old, new)
+    text += f"\nHOST_UID={uid}\nHOST_GID={gid}\n"
     (ROOT / ".env").write_text(text)
 
 
 def prepare_data_dirs(data_dir: Path) -> None:
+    uid = os.getuid()
+    gid = os.getgid()
     subdirs = [
         "postgres-synapse",
         "postgres-telegram",
@@ -280,7 +285,12 @@ def prepare_data_dirs(data_dir: Path) -> None:
         "ollama",
     ]
     for rel in subdirs:
-        (data_dir / rel).mkdir(parents=True, exist_ok=True)
+        path = data_dir / rel
+        path.mkdir(parents=True, exist_ok=True)
+        try:
+            os.chown(path, uid, gid)
+        except OSError:
+            pass
     run(
         [
             "python3",
