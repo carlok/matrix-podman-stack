@@ -157,8 +157,7 @@ dump_legacy_16() {
     -v "${volume_host}:${POSTGRES_LEGACY_MOUNT}:Z" \
     "$POSTGRES_16_IMAGE" >/dev/null
 
-  local i
-  for i in $(seq 1 90); do
+  for _ in $(seq 1 90); do
     if podman exec "$dump_container" pg_isready -U "$pg_user" -d "$pg_db" >/dev/null 2>&1; then
       break
     fi
