@@ -375,26 +375,27 @@ def grafana_prometheus_query(admin_password: str) -> bool:
             datasources = json.loads(resp.read().decode())
         prom = next((d for d in datasources if d.get("type") == "prometheus"), None)
     assert prom is not None
-    enc_query = urllib.parse.quote('up{job="synapse"}', safe="")
-    proxy_paths = []
-    if prom.get("uid"):
-        proxy_paths.append(
-            f"http://127.0.0.1:3000/api/datasources/uid/{prom['uid']}/proxy/api/v1/query?query={enc_query}"
-        )
-    if prom.get("id") is not None:
-        proxy_paths.append(
-            f"http://127.0.0.1:3000/api/datasources/proxy/{prom['id']}/api/v1/query?query={enc_query}"
-        )
-    for proxy_url in proxy_paths:
-        try:
-            q = urllib.request.Request(proxy_url, headers=headers)
-            with urllib.request.urlopen(q, timeout=60) as resp:
-                payload = json.loads(resp.read().decode())
-            results = payload.get("data", {}).get("result", [])
-            if payload.get("status") == "success" and results:
-                return True
-        except urllib.error.HTTPError:
-            continue
+    prom_uid = prom.get("uid") or "ci-prometheus"
+    for expr in ('up{job="synapse"}', "up"):
+        enc_query = urllib.parse.quote(expr, safe="")
+        proxy_paths = [
+            f"http://127.0.0.1:3000/api/datasources/uid/{prom_uid}/proxy/api/v1/query?query={enc_query}",
+            f"http://127.0.0.1:3000/api/datasources/proxy/uid/{prom_uid}/api/v1/query?query={enc_query}",
+        ]
+        if prom.get("id") is not None:
+            proxy_paths.append(
+                f"http://127.0.0.1:3000/api/datasources/proxy/{prom['id']}/api/v1/query?query={enc_query}"
+            )
+        for proxy_url in proxy_paths:
+            try:
+                q = urllib.request.Request(proxy_url, headers=headers)
+                with urllib.request.urlopen(q, timeout=60) as resp:
+                    payload = json.loads(resp.read().decode())
+                results = payload.get("data", {}).get("result", [])
+                if payload.get("status") == "success" and results:
+                    return True
+            except urllib.error.HTTPError:
+                continue
     return False
 
 

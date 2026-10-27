@@ -26,7 +26,12 @@ def test_monitoring_prometheus_and_grafana(integration_data_dir: Path):
 
         podman_stack.wait_http("http://127.0.0.1:3000/api/health", timeout_s=180)
         grafana_pw = podman_stack.env_value("GRAFANA_ADMIN_PASSWORD")
-        assert podman_stack.grafana_prometheus_query(grafana_pw)
+        podman_stack.wait_until(
+            lambda: podman_stack.grafana_prometheus_query(grafana_pw),
+            timeout_s=180,
+            interval_s=5,
+            description="Grafana Prometheus instant query",
+        )
     except Exception:
         print(podman_stack.dump_compose_logs(["prometheus", "grafana", "synapse"]))
         raise
