@@ -35,11 +35,10 @@ def test_telegram_bridge_registers_appservice(integration_data_dir: Path):
         podman_stack.run(["./scripts/verify-synapse-postgres.sh"], timeout=900)
         podman_stack.run(["./scripts/bootstrap-telegram.sh"], timeout=300)
         podman_stack.compose("up", "-d", "postgres-telegram", "mautrix-telegram", profiles="telegram")
-        for _ in range(90):
-            hs = (integration_data_dir / "synapse" / "homeserver.yaml").read_text()
-            if "telegram-registration.yaml" in hs:
-                break
-            __import__("time").sleep(2)
+        def registration_present() -> bool:
+            return "telegram-registration.yaml" in (integration_data_dir / "synapse" / "homeserver.yaml").read_text()
+
+        podman_stack.wait_until(registration_present, timeout_s=240, description="telegram appservice registration")
         reg = integration_data_dir / "synapse" / "telegram-registration.yaml"
         assert reg.is_file()
         # Bridge may exit-loop without Telegram login; container should exist or have started.
@@ -58,7 +57,11 @@ def test_qdrant_collection_upsert_search(integration_data_dir: Path):
     headers = {"api-key": api_key, "Content-Type": "application/json"}
     try:
         podman_stack.run(["./scripts/bootstrap-vectors.sh"], timeout=300)
-        podman_stack.wait_http("http://127.0.0.1:16333/collections", timeout_s=120)
+        podman_stack.wait_http(
+            "http://127.0.0.1:16333/healthz",
+            timeout_s=180,
+            headers={"api-key": api_key},
+        )
         put = urllib.request.Request(
             "http://127.0.0.1:16333/collections/ci_probe",
             data=json.dumps({"vectors": {"size": 4, "distance": "Cosine"}}).encode(),

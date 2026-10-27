@@ -84,7 +84,8 @@ def run(
 
 
 def compose_cmd(*args: str, extra_files: list[Path] | None = None) -> list[str]:
-    cmd = ["podman", "compose", "-f", str(ROOT / "compose.yaml")]
+    # ubuntu-latest defaults `podman compose` to the docker-compose plugin; use podman-compose in CI.
+    cmd = ["podman-compose", "-f", str(ROOT / "compose.yaml")]
     for path in extra_files or []:
         cmd.extend(["-f", str(path)])
     cmd.extend(args)
@@ -108,15 +109,37 @@ def compose(
 
 
 def compose_down(profiles: str | None = None, extra_files: list[Path] | None = None) -> None:
-    compose("down", "-v", "--remove-orphans", profiles=profiles, extra_files=extra_files, timeout=900)
+    run(
+        compose_cmd("down", "-v", extra_files=extra_files),
+        env={"COMPOSE_PROFILES": profiles} if profiles else None,
+        check=False,
+        timeout=900,
+    )
 
 
-def wait_http(url: str, *, timeout_s: float = 120.0, interval_s: float = 2.0) -> None:
+def wait_until(predicate, *, timeout_s: float = 120.0, interval_s: float = 2.0, description: str = "") -> None:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if predicate():
+            return
+        time.sleep(interval_s)
+    label = description or "condition"
+    raise TimeoutError(f"Timed out waiting for {label}")
+
+
+def wait_http(
+    url: str,
+    *,
+    timeout_s: float = 120.0,
+    interval_s: float = 2.0,
+    headers: dict[str, str] | None = None,
+) -> None:
     deadline = time.time() + timeout_s
     last_err: Exception | None = None
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=10) as resp:
+            req = urllib.request.Request(url, headers=headers or {})
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 if resp.status < 400:
                     return
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
@@ -127,6 +150,31 @@ def wait_http(url: str, *, timeout_s: float = 120.0, interval_s: float = 2.0) ->
 
 def wait_healthz(port: int, path: str = "/health") -> None:
     wait_http(f"http://127.0.0.1:{port}{path}")
+
+
+def wait_pg_isready(
+    service: str,
+    user: str,
+    *,
+    env: dict[str, str] | None = None,
+    profiles: str | None = None,
+    timeout_s: float = 120.0,
+) -> None:
+    def ready() -> bool:
+        proc = compose(
+            "exec",
+            "-T",
+            service,
+            "pg_isready",
+            "-U",
+            user,
+            env=env,
+            profiles=profiles,
+            timeout=30,
+        )
+        return proc.returncode == 0
+
+    wait_until(ready, timeout_s=timeout_s, description=f"{service} pg_isready")
 
 
 def dump_compose_logs(services: list[str] | None = None) -> str:

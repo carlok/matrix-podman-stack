@@ -20,8 +20,8 @@ Coverage gate (`pyproject.toml`, `fail_under` 95) applies to listed Python modul
 
 | Behavior | Test type | Location |
 |----------|-----------|----------|
-| Synapse DB bootstrap on PG16, custom row survives upgrade to PG18 | Integration | `tests/integration/test_postgres_migration.py` |
-| Full Matrix room/message retention after Synapse ran on PG16 | Manual / follow-up | `scripts/verify-synapse-postgres.sh` + operator migration |
+| Synapse DB bootstrap on PG16, custom row survives upgrade to PG18 | Integration | `tests/integration/test_postgres_migration.py` (`test_synapse_pg16_schema_migration_probe`) |
+| Matrix users, room, and messages after Synapse ran on PG16 | Integration | `tests/integration/test_postgres_migration.py` (`test_synapse_pg16_matrix_data_survives_migration`) |
 | Telegram volume PG16 → 18 (table row survives) | Integration | same (`--service telegram`) |
 | `--dry-run` leaves volume unchanged | Integration | same |
 | Second run skips (marker / PG18 layout) | Integration | same |
@@ -37,7 +37,7 @@ Coverage gate (`pyproject.toml`, `fail_under` 95) applies to listed Python modul
 | Behavior | Test type | Location |
 |----------|-----------|----------|
 | Layout + bucket on **v2.4.1**, S3 put object | Integration | `tests/integration/test_garage_upgrade.py` |
-| Same volume on **v2.5.0**, S3 get object | Integration | same |
+| Same volume on **v2.5.0**, S3 get object | Integration | same (boto3 S3 client; no aws-cli image pull) |
 
 Uses compose image override for the old version only.
 

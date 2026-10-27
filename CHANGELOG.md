@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `upgrade-postgres.sh` ignores `POSTGRES_*_IMAGE` / `POSTGRES_*_MOUNT` overrides in `.env` so restores always run on Postgres 18.
+- `upgrade-postgres.sh` ignores `POSTGRES_*_IMAGE` / `POSTGRES_*_MOUNT` overrides in `.env` so restores always run on Postgres 18; stops/removes dependent containers before dump; fails if post-restore major is not 18.
+- Integration CI uses `podman-compose` via `scripts/compose_stack.sh` (avoids docker-compose plugin failures on GitHub Actions).
 - NATS monitoring HTTP listener binds `0.0.0.0:8222` so host port maps and Prometheus-style checks work from the host.
 - `scripts/verify-synapse-postgres.sh` — smoke test Synapse `/health` against Postgres 18 (see `docs/postgres-upgrade.md`).
 

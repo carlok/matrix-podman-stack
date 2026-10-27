@@ -16,7 +16,7 @@ def _load_compose() -> dict:
     import subprocess
 
     proc = subprocess.run(
-        ["podman", "compose", "config"],
+        ["podman-compose", "-f", str(ROOT / "compose.yaml"), "config"],
         cwd=ROOT,
         capture_output=True,
         text=True,

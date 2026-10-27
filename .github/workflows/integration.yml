@@ -20,7 +20,7 @@ permissions:
 jobs:
   integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +34,7 @@ jobs:
           - name: garage-upgrade
             pytest_args: "tests/integration/test_garage_upgrade.py"
           - name: postgres-migration
-            pytest_args: "tests/integration/test_postgres_migration.py -k 'schema or telegram or dry_run'"
+            pytest_args: "tests/integration/test_postgres_migration.py"
           - name: optional-element
             pytest_args: "tests/integration/test_optional_profiles.py::test_element_serves_config"
           - name: optional-telegram
@@ -57,7 +57,7 @@ jobs:
       - name: Pull compose images (best effort)
         run: |
           cp .env.example .env
-          podman compose pull --quiet || true
+          podman-compose -f compose.yaml pull --quiet || true
 
       - name: Run integration tests (${{ matrix.name }})
         env:
@@ -68,5 +68,5 @@ jobs:
       - name: Dump compose logs on failure
         if: failure()
         run: |
-          podman compose ps -a || true
-          podman compose logs --tail=300 || true
+          podman-compose -f compose.yaml ps -a || true
+          podman-compose -f compose.yaml logs --tail=300 || true

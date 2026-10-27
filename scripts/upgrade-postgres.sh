@@ -120,7 +120,7 @@ write_upgrade_marker() {
 }
 
 compose() {
-  podman compose --env-file "$MIGRATION_ENV_FILE" "$@"
+  COMPOSE_ENV_FILE="$MIGRATION_ENV_FILE" "$ROOT/scripts/compose_stack.sh" "$@"
 }
 
 compose_with_profiles() {
@@ -138,8 +138,10 @@ stop_stack_for() {
   echo "==> Stopping dependent containers (if running)..."
   if [[ "$compose_service" == "postgres-synapse" ]]; then
     compose stop synapse postgres-synapse 2>/dev/null || true
+    compose rm -sf synapse postgres-synapse 2>/dev/null || true
   else
     COMPOSE_PROFILES=telegram compose stop mautrix-telegram postgres-telegram 2>/dev/null || true
+    COMPOSE_PROFILES=telegram compose rm -sf mautrix-telegram postgres-telegram 2>/dev/null || true
   fi
 }
 
@@ -296,8 +298,15 @@ migrate_one() {
     "backup=${backup_name} dump=$(basename "$dump_file") at=${ts}"
 
   echo "==> Verifying database..."
-  compose_with_profiles "$profiles" exec -T "$compose_service" psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
-    -c "SELECT current_setting('server_version_num')::int / 10000 AS major_version;"
+  local major
+  major="$(compose_with_profiles "$profiles" exec -T "$compose_service" psql -v ON_ERROR_STOP=1 -U "$pg_user" -d "$pg_db" \
+    -tAc "SELECT current_setting('server_version_num')::int / 10000;")"
+  major="${major//[[:space:]]/}"
+  if [[ "$major" != "18" ]]; then
+    echo "ERROR: expected Postgres major 18 after migration, got ${major} (is an old container still running?)" >&2
+    exit 1
+  fi
+  echo "Postgres major_version=${major}"
 
   echo "OK: ${compose_service} migrated. Backup: ${backup_name}"
   echo "     Dump file: ${dump_file}"

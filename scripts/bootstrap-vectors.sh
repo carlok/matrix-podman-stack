@@ -17,5 +17,5 @@ python3 "$ROOT/scripts/render_vectors_config.py" \
   --data-root "$DATA_ROOT" \
   --api-key "$QDRANT_API_KEY"
 
-COMPOSE_PROFILES=vectors podman compose up -d qdrant
+COMPOSE_PROFILES=vectors "$ROOT/scripts/compose_stack.sh" up -d qdrant
 echo "Qdrant ready on 127.0.0.1:${QDRANT_HTTP_PORT:-16333}"
