@@ -106,6 +106,11 @@ def test_synapse_pg16_matrix_data_survives_migration(integration_data_dir: Path)
         )
 
         podman_stack.compose("stop", "synapse", "postgres-synapse", env=podman_stack.PG16_ENV)
+        podman_stack.run(
+            podman_stack.compose_cmd("rm", "-f", "synapse", "postgres-synapse"),
+            env=podman_stack.PG16_ENV,
+            check=False,
+        )
         podman_stack.apply_compose_postgres_env(podman_stack.PG18_ENV)
         proc_up = podman_stack.run(["./scripts/upgrade-postgres.sh", "--service", "synapse"], timeout=1200)
         assert "OK:" in proc_up.stdout

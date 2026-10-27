@@ -194,6 +194,10 @@ restore_pg18() {
     return 0
   fi
 
+  if [[ "$compose_service" == "postgres-synapse" ]]; then
+    compose rm -sf synapse 2>/dev/null || true
+    podman rm -f matrix-podman-stack_synapse_1 2>/dev/null || true
+  fi
   compose rm -sf "$compose_service" 2>/dev/null || true
   podman rm -f "matrix-podman-stack_${compose_service}_1" 2>/dev/null || true
   if [[ -n "$profiles" ]]; then
