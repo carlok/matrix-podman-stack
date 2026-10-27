@@ -43,7 +43,7 @@ def test_telegram_bridge_registers_appservice(integration_data_dir: Path):
         reg = integration_data_dir / "synapse" / "telegram-registration.yaml"
         assert reg.is_file()
         # Bridge may exit-loop without Telegram login; container should exist or have started.
-        proc = podman_stack.compose("ps", profiles="telegram", check=False)
+        proc = podman_stack.compose("ps", profiles="telegram")
         assert "mautrix-telegram" in proc.stdout or "postgres-telegram" in proc.stdout
     except Exception:
         print(podman_stack.dump_compose_logs(["mautrix-telegram", "postgres-telegram", "synapse"]))
