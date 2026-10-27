@@ -20,8 +20,9 @@ def test_element_serves_config(integration_data_dir: Path):
         podman_stack.compose("up", "-d", "element")
         podman_stack.wait_http("http://127.0.0.1:8080/", timeout_s=120)
         cfg = json.loads((integration_data_dir / "element" / "config.json").read_text())
-        assert "m.homeserver" in cfg
-        assert cfg["m.homeserver"]["base_url"].startswith("http")
+        hs = cfg["default_server_config"]["m.homeserver"]
+        assert hs["base_url"].startswith("http")
+        assert hs["server_name"]
     except Exception:
         print(podman_stack.dump_compose_logs(["element", "synapse"]))
         raise

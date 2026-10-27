@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -369,19 +370,19 @@ def grafana_prometheus_query(admin_password: str) -> bool:
         )
         with urllib.request.urlopen(create, timeout=30):
             pass
-    query_body = json.dumps(
-        {"queries": [{"refId": "A", "expr": "up{job=\"synapse\"}", "instant": True}]}
-    ).encode()
-    q = urllib.request.Request(
-        "http://127.0.0.1:3000/api/ds/query",
-        data=query_body,
-        headers={**headers, "Content-Type": "application/json"},
-        method="POST",
-    )
+    prom_id = prom["id"] if prom else None
+    if prom_id is None:
+        with urllib.request.urlopen(ds_req, timeout=30) as resp:
+            datasources = json.loads(resp.read().decode())
+        prom_id = next((d["id"] for d in datasources if d.get("type") == "prometheus"), None)
+    assert prom_id is not None
+    enc_query = urllib.parse.quote('up{job="synapse"}', safe="")
+    proxy_url = f"http://127.0.0.1:3000/api/datasources/proxy/{prom_id}/api/v1/query?query={enc_query}"
+    q = urllib.request.Request(proxy_url, headers=headers)
     with urllib.request.urlopen(q, timeout=60) as resp:
         payload = json.loads(resp.read().decode())
-    results = payload.get("results", {}).get("A", {}).get("frames", [])
-    return bool(results)
+    results = payload.get("data", {}).get("result", [])
+    return payload.get("status") == "success" and bool(results)
 
 
 def rm_tree(path: Path) -> None:
