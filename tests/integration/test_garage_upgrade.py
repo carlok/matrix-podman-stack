@@ -52,6 +52,21 @@ def _garage_key_credentials() -> tuple[str, str]:
         if "Secret key:" in line:
             secret = line.split(":", 1)[1].strip()
     assert key_id and secret
+    podman_stack.compose(
+        "exec",
+        "-T",
+        "garage",
+        "/garage",
+        "bucket",
+        "allow",
+        "--read",
+        "--write",
+        S3_BUCKET,
+        "--key",
+        "upgrade-test-key",
+        profiles="object",
+        env=GARAGE_COMPOSE_ENV,
+    )
     return key_id, secret
 
 

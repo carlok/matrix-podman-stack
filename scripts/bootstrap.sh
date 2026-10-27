@@ -40,6 +40,6 @@ for _ in $(seq 1 60); do
 done
 
 echo "Running Synapse bootstrap (profile: bootstrap)..."
-COMPOSE_PROFILES=bootstrap "$ROOT/scripts/compose_stack.sh" run --rm synapse-bootstrap
+COMPOSE_PROFILES=bootstrap "$ROOT/scripts/compose_stack.sh" run --rm --no-deps synapse-bootstrap
 
 echo "Bootstrap complete. Start the stack with: podman compose up -d"

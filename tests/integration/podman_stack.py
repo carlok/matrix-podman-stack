@@ -108,12 +108,42 @@ def compose(
     return run(cmd, env=merged, timeout=timeout)
 
 
+def purge_compose_project() -> None:
+    """Remove leftover containers/networks (podman-compose down can miss deps on CI)."""
+    run(
+        [
+            "podman",
+            "rm",
+            "-af",
+            "--filter",
+            "label=io.podman.compose.project=matrix-podman-stack",
+        ],
+        check=False,
+        timeout=300,
+    )
+    run(["podman", "network", "rm", "matrix-podman-stack_matrix-db"], check=False, timeout=60)
+
+
 def compose_down(profiles: str | None = None, extra_files: list[Path] | None = None) -> None:
     run(
         compose_cmd("down", "-v", extra_files=extra_files),
         env={"COMPOSE_PROFILES": profiles} if profiles else None,
         check=False,
         timeout=900,
+    )
+    purge_compose_project()
+
+
+def bootstrap_synapse(*, env: dict[str, str] | None = None) -> None:
+    """Generate homeserver.yaml; postgres-synapse must already be up and healthy."""
+    compose(
+        "run",
+        "--rm",
+        "--no-deps",
+        "synapse-bootstrap",
+        profiles="bootstrap",
+        env=env,
+        timeout=600,
     )
 
 

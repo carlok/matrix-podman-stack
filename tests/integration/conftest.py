@@ -27,6 +27,7 @@ def integration_data_dir(podman_available, tmp_path_factory) -> Path:
     podman_stack.prepare_data_dirs(data_dir)
     yield data_dir
     podman_stack.compose_down()
+    podman_stack.purge_compose_project()
     if os.environ.get("INTEGRATION_KEEP_DATA"):
         return
     shutil.rmtree(data_dir, ignore_errors=True)

@@ -57,7 +57,7 @@ jobs:
       - name: Pull compose images (best effort)
         run: |
           cp .env.example .env
-          podman-compose -f compose.yaml pull --quiet || true
+          podman-compose -f compose.yaml pull || true
 
       - name: Run integration tests (${{ matrix.name }})
         env:
@@ -68,5 +68,5 @@ jobs:
       - name: Dump compose logs on failure
         if: failure()
         run: |
-          podman-compose -f compose.yaml ps -a || true
+          podman ps -a --filter label=io.podman.compose.project=matrix-podman-stack || true
           podman-compose -f compose.yaml logs --tail=300 || true

@@ -22,13 +22,7 @@ def test_synapse_pg16_schema_migration_probe(integration_data_dir: Path):
     try:
         podman_stack.apply_compose_postgres_env(podman_stack.PG16_ENV)
         podman_stack.compose("up", "-d", "postgres-synapse", env=podman_stack.PG16_ENV)
-        podman_stack.compose(
-            "run",
-            "--rm",
-            "synapse-bootstrap",
-            profiles="bootstrap",
-            env=podman_stack.PG16_ENV,
-        )
+        podman_stack.bootstrap_synapse(env=podman_stack.PG16_ENV)
         podman_stack.compose(
             "exec",
             "-T",
@@ -78,13 +72,7 @@ def test_synapse_pg16_matrix_data_survives_migration(integration_data_dir: Path)
         podman_stack.apply_compose_postgres_env(podman_stack.PG16_ENV)
         podman_stack.compose("up", "-d", "postgres-synapse", env=podman_stack.PG16_ENV)
         podman_stack.wait_pg_isready("postgres-synapse", "synapse", env=podman_stack.PG16_ENV)
-        podman_stack.compose(
-            "run",
-            "--rm",
-            "synapse-bootstrap",
-            profiles="bootstrap",
-            env=podman_stack.PG16_ENV,
-        )
+        podman_stack.bootstrap_synapse(env=podman_stack.PG16_ENV)
         podman_stack.compose("up", "-d", "synapse", env=podman_stack.PG16_ENV)
         podman_stack.wait_healthz(8008)
 
