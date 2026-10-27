@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/verify-synapse-postgres.sh` — smoke test Synapse `/health` against Postgres 18 (see `docs/postgres-upgrade.md`).
+
 ### Changed
 
 - **Postgres** image `16.15-bookworm` → **`18.6-bookworm`** (`postgres-synapse`, `postgres-telegram`). Volume mount is now `/var/lib/postgresql` (PGDATA at `18/docker` on the host). New installs init automatically; existing 16 data requires `./scripts/upgrade-postgres.sh` (see `docs/postgres-upgrade.md`).
