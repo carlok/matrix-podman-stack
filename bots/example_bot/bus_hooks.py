@@ -26,15 +26,17 @@ async def run_bus_demo(mention_text: str, bot_user_id: str) -> None:
             from nats.js.errors import BadRequestError
 
             nc = await nats.connect(nats_url)
-            js = nc.jetstream()
             try:
-                await js.add_stream(name="BOT_TASKS", subjects=["bot.tasks.>"])
-            except BadRequestError:
-                log.debug("JetStream BOT_TASKS stream already exists")
-            payload = f"{bot_user_id}:{mention_text[:200]}".encode()
-            await js.publish("bot.tasks.mention", payload)
-            await nc.close()
-            log.info("Published mention event to NATS JetStream")
+                js = nc.jetstream()
+                try:
+                    await js.add_stream(name="BOT_TASKS", subjects=["bot.tasks.>"])
+                except BadRequestError:
+                    log.debug("JetStream BOT_TASKS stream already exists")
+                payload = f"{bot_user_id}:{mention_text[:200]}".encode()
+                await js.publish("bot.tasks.mention", payload)
+                log.info("Published mention event to NATS JetStream")
+            finally:
+                await nc.drain()
         except (ImportError, OSError, TimeoutError, ValueError) as exc:
             log.warning("NATS publish skipped: %s", exc)
 
@@ -49,11 +51,17 @@ async def run_bus_demo(mention_text: str, bot_user_id: str) -> None:
                 password=valkey_password,
                 decode_responses=True,
             )
-            client.set(BUS_DEMO_KEY, mention_text[:500])
-            log.info("Valkey %s=%r", BUS_DEMO_KEY, client.get(BUS_DEMO_KEY)[:40])
+            try:
+                client.set(BUS_DEMO_KEY, mention_text[:500])
+                stored = client.get(BUS_DEMO_KEY)
+                preview = (stored or "")[:40]
+                log.info("Valkey %s=%r", BUS_DEMO_KEY, preview)
+            finally:
+                client.close()
         except (ImportError, OSError, ValueError, RedisError) as exc:
             log.warning("Valkey write skipped: %s", exc)
 
 
 def schedule_bus_demo(mention_text: str, bot_user_id: str) -> None:
-    asyncio.get_event_loop().create_task(run_bus_demo(mention_text, bot_user_id))
+    loop = asyncio.get_running_loop()
+    loop.create_task(run_bus_demo(mention_text, bot_user_id))
