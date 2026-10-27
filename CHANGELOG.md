@@ -9,13 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Postgres** image `16.15-bookworm` → **`18.6-bookworm`** (`postgres-synapse`, `postgres-telegram`). Volume mount is now `/var/lib/postgresql` (PGDATA at `18/docker` on the host). New installs init automatically; existing 16 data requires `./scripts/upgrade-postgres.sh` (see `docs/postgres-upgrade.md`).
 - **Grafana** image `11.5.2` → `13.2.4` (monitoring profile; env vars unchanged; SQLite data under `DATA_DIR/grafana` migrates on first start).
-- **Postgres** image `16.9-bookworm` → `16.15-bookworm` (Synapse and Telegram services; patch release within major 16).
-- Dependabot: ignore semver-major updates for `library/postgres` so Compose stays on 16.x until an intentional major upgrade.
+- Dependabot: ignore semver-major updates for `library/postgres` (patch/minor 18.x updates still proposed).
+
+### Breaking
+
+- **Postgres 16 → 18:** Do not pull Postgres 18 and restart on an existing `DATA_DIR` without running the migration script. Legacy PGDATA at the volume root is incompatible with the Postgres 18 image layout.
 
 ### Upgrade notes
 
-- **Postgres major version (future):** Bumping the image major (for example 16 → 17) is not a simple tag change. Plan for `pg_upgrade` or a full logical dump and restore before pointing Synapse or mautrix-telegram at a new data directory.
+- **Postgres 16 → 18:** Stop Synapse (and optional Telegram bridge), run `./scripts/upgrade-postgres.sh`, then `podman compose up -d`. Backups are kept as `postgres-*.pg16-backup-*` until you remove them.
 
 ### Security
 

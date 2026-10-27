@@ -11,6 +11,7 @@ include = [
     "bots/example_bot/duo.py",
     "scripts/load_bot_config.py",
     "scripts/matrix_testutil.py",
+    "scripts/postgres_upgrade_util.py",
 ]
 omit = ["tests/*"]
 
