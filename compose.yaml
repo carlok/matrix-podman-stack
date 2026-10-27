@@ -280,7 +280,7 @@ services:
 
   valkey:
     <<: [*mem_valkey, *harden_bus]
-    image: docker.io/valkey/valkey:9.1.2-alpine
+    image: docker.io/valkey/valkey:9.1.3-alpine
     restart: unless-stopped
     profiles:
       - bus
@@ -307,7 +307,7 @@ services:
 
   garage:
     <<: [*mem_garage, *harden_bus]
-    image: docker.io/dxflrs/garage:v2.4.1
+    image: docker.io/dxflrs/garage:v2.5.0
     restart: unless-stopped
     profiles:
       - object
@@ -358,7 +358,7 @@ services:
 
   ollama:
     <<: [*mem_ollama, *pids_limit, *security_opt]
-    image: docker.io/ollama/ollama:0.40.10
+    image: docker.io/ollama/ollama:0.40.11
     restart: unless-stopped
     profiles:
       - llm
