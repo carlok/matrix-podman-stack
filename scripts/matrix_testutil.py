@@ -50,3 +50,46 @@ def fetch_messages(base: str, token: str, room_id: str, limit: int = 50) -> list
         token,
     )
     return data.get("chunk", [])
+
+
+def user_id(server_name: str, localpart: str) -> str:
+    return f"@{localpart}:{server_name}"
+
+
+def join_room(base: str, token: str, room_id: str) -> None:
+    enc = urllib.parse.quote(room_id, safe="")
+    api("POST", f"{base}/_matrix/client/v3/join/{enc}", token, {})
+
+
+def create_room(base: str, token: str, *, invite: list[str] | None = None) -> str:
+    body: dict = {"preset": "trusted_private_chat", "visibility": "private"}
+    if invite:
+        body["invite"] = invite
+    return api("POST", f"{base}/_matrix/client/v3/createRoom", token, body)["room_id"]
+
+
+def send_text(base: str, token: str, room_id: str, body: str) -> str:
+    enc = urllib.parse.quote(room_id, safe="")
+    return api(
+        "POST",
+        f"{base}/_matrix/client/v3/rooms/{enc}/send/m.room.message",
+        token,
+        {"msgtype": "m.text", "body": body},
+    )["event_id"]
+
+
+def wait_for_message_bodies(
+    base: str, token: str, room_id: str, expected: set[str], *, timeout_s: float = 60.0
+) -> None:
+    deadline = time.time() + timeout_s
+    bodies: set[str | None] = set()
+    while time.time() < deadline:
+        bodies = {
+            ev.get("content", {}).get("body")
+            for ev in fetch_messages(base, token, room_id)
+            if ev.get("type") == "m.room.message"
+        }
+        if expected <= bodies:
+            return
+        time.sleep(1.0)
+    raise TimeoutError(f"Timed out waiting for messages {expected} in {room_id}; saw {bodies}")

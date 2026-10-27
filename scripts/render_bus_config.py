@@ -11,7 +11,7 @@ from pathlib import Path
 def render_nats_conf(user: str, password: str) -> str:
     return f"""# Generated — do not commit
 port: 4222
-http: 127.0.0.1:8222
+http: 0.0.0.0:8222
 server_name: matrix-bus-nats
 
 jetstream {{

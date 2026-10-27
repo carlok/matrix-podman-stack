@@ -28,11 +28,12 @@ BRIDGE_DATA="$DATA_ROOT/mautrix-telegram"
 mkdir -p "$BRIDGE_DATA"
 
 if [[ ! -f "$BRIDGE_DATA/config.yaml" ]]; then
-  echo "Generating mautrix-telegram config..."
+  echo "Generating mautrix-telegram example config..."
   podman run --rm \
     -v "$BRIDGE_DATA:/data:Z" \
+    --entrypoint /usr/bin/mautrix-telegram \
     dock.mau.dev/mautrix/telegram:v0.2610.0 \
-    -g -c /data/config.yaml -r /data/registration.yaml
+    -c /data/config.yaml -e
 fi
 
 python3 "$ROOT/scripts/patch_telegram_config.py" \
@@ -45,6 +46,15 @@ python3 "$ROOT/scripts/patch_telegram_config.py" \
   --db-name "${TELEGRAM_POSTGRES_DB:-mautrix_telegram}" \
   --api-id "$TELEGRAM_API_ID" \
   --api-hash "$TELEGRAM_API_HASH"
+
+if [[ ! -f "$BRIDGE_DATA/registration.yaml" ]]; then
+  echo "Generating mautrix-telegram appservice registration..."
+  podman run --rm \
+    -v "$BRIDGE_DATA:/data:Z" \
+    --entrypoint /usr/bin/mautrix-telegram \
+    dock.mau.dev/mautrix/telegram:v0.2610.0 \
+    -g -c /data/config.yaml -r /data/registration.yaml
+fi
 
 cp -f "$BRIDGE_DATA/registration.yaml" "$DATA_ROOT/synapse/telegram-registration.yaml"
 chmod 600 "$DATA_ROOT/synapse/telegram-registration.yaml" 2>/dev/null || true

@@ -5,6 +5,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+export HOST_UID="${HOST_UID:-$(id -u)}"
+export HOST_GID="${HOST_GID:-$(id -g)}"
+
 if [[ ! -f .env ]]; then
   echo "Copy .env.example to .env and set secrets first." >&2
   exit 1
@@ -33,9 +36,9 @@ if [[ ! -f "$SYNAPSE_CFG" ]]; then
   HOST_UID="${HOST_UID:-$(id -u)}" HOST_GID="${HOST_GID:-$(id -g)}" ./scripts/bootstrap.sh
 else
   echo "Using existing homeserver.yaml"
-  podman compose up -d postgres-synapse
+  "$ROOT/scripts/compose_stack.sh" up -d postgres-synapse
   for _ in $(seq 1 60); do
-    if podman compose exec -T postgres-synapse pg_isready -U "${SYNAPSE_POSTGRES_USER:-synapse}" \
+    if "$ROOT/scripts/compose_stack.sh" exec -T postgres-synapse pg_isready -U "${SYNAPSE_POSTGRES_USER:-synapse}" \
       -d "${SYNAPSE_POSTGRES_DB:-synapse}" >/dev/null 2>&1; then
       break
     fi
@@ -44,7 +47,7 @@ else
 fi
 
 echo "==> Starting Synapse..."
-HOST_UID="${HOST_UID:-$(id -u)}" HOST_GID="${HOST_GID:-$(id -g)}" podman compose up -d synapse
+HOST_UID="${HOST_UID:-$(id -u)}" HOST_GID="${HOST_GID:-$(id -g)}" "$ROOT/scripts/compose_stack.sh" up -d synapse
 
 for _ in $(seq 1 90); do
   if curl -fsS "http://127.0.0.1:${PORT}/health" >/dev/null 2>&1; then
@@ -57,7 +60,7 @@ echo -n "Synapse /health: "
 curl -fsS "http://127.0.0.1:${PORT}/health"
 echo
 
-pg_ver="$(podman compose exec -T postgres-synapse psql -U "${SYNAPSE_POSTGRES_USER:-synapse}" \
+pg_ver="$("$ROOT/scripts/compose_stack.sh" exec -T postgres-synapse psql -U "${SYNAPSE_POSTGRES_USER:-synapse}" \
   -d "${SYNAPSE_POSTGRES_DB:-synapse}" -tAc "SHOW server_version;")"
 echo "Postgres: ${pg_ver}"
 case "$pg_ver" in

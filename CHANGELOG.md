@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `docs/testing-plan.md` — maps stack claims to unit vs integration tests and CI scope.
+- `tests/integration/` — Podman Compose integration suite (Postgres migration, Garage upgrade, monitoring, bus, optional profiles).
+- `.github/workflows/integration.yml` — matrix integration jobs on PRs (compose/scripts/bots), weekly schedule, and `workflow_dispatch`.
+- Example bot bus hooks: `connect_nats_with_retry`, JetStream pull consume behind `BUS_DEMO_CONSUME`, and unit tests.
+- Compose: optional `POSTGRES_SYNAPSE_IMAGE` / `POSTGRES_SYNAPSE_MOUNT` (and telegram equivalents) for integration PG16 legacy layouts.
+
+### Fixed
+
+- `upgrade-postgres.sh` ignores `POSTGRES_*_IMAGE` / `POSTGRES_*_MOUNT` overrides in `.env` so restores always run on Postgres 18; stops/removes dependent containers before dump; fails if post-restore major is not 18.
+- Integration CI uses `podman-compose` via `scripts/compose_stack.sh` (avoids docker-compose plugin failures on GitHub Actions).
+- NATS monitoring HTTP listener binds `0.0.0.0:8222` so host port maps and Prometheus-style checks work from the host.
 - `scripts/verify-synapse-postgres.sh` — smoke test Synapse `/health` against Postgres 18 (see `docs/postgres-upgrade.md`).
 
 ### Changed

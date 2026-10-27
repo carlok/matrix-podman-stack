@@ -21,6 +21,7 @@ __pycache__/
 .venv-bot-test/
 venv/
 bots.yaml
+tests/integration/data/
 .pytest_cache/
 .ruff_cache/
 .coverage
