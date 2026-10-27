@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Example bot: **nats-py** `2.10.0` → `2.16.0`, **redis** (Valkey client) `5.2.1` → `8.1.0`; bus hooks use `nc.drain()` and explicit `Redis.close()`.
 - **Valkey** `9.1.2-alpine` → `9.1.3-alpine`, **Garage** `v2.4.1` → `v2.5.0`, **Ollama** `0.40.10` → `0.40.11` (patch/minor within current majors; optional profiles).
 - **Postgres** image `16.15-bookworm` → **`18.6-bookworm`** (`postgres-synapse`, `postgres-telegram`). Volume mount is now `/var/lib/postgresql` (PGDATA at `18/docker` on the host). New installs init automatically; existing 16 data requires `./scripts/upgrade-postgres.sh` (see `docs/postgres-upgrade.md`).
 - **Grafana** image `11.5.2` → `13.2.4` (monitoring profile; env vars unchanged; SQLite data under `DATA_DIR/grafana` migrates on first start).

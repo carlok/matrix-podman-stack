@@ -8,6 +8,7 @@ pythonpath = ["bots/example_bot", "scripts"]
 branch = true
 include = [
     "bots/example_bot/bot.py",
+    "bots/example_bot/bus_hooks.py",
     "bots/example_bot/duo.py",
     "scripts/load_bot_config.py",
     "scripts/matrix_testutil.py",
