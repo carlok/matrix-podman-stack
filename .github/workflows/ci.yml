@@ -18,7 +18,7 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq podman podman-compose shellcheck python3-pip
-          python3 -m pip install --user ruff PyYAML
+          python3 -m pip install --user ruff PyYAML pip-audit
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Validate compose
@@ -29,14 +29,15 @@ jobs:
       - name: Shellcheck
         run: shellcheck -e SC1090,SC1091 scripts/*.sh bootstrap/*.sh
 
-      - name: Ruff (example bot)
-        run: ruff check bots/
-
       - name: Python syntax (scripts)
         run: python3 -m py_compile scripts/*.py bots/example_bot/bot.py
 
       - name: Ruff (scripts)
         run: ruff check scripts/ bots/
+
+      - name: pip-audit (requirements)
+        run: |
+          pip-audit -r requirements-dev.txt -r scripts/requirements.txt -r bots/example_bot/requirements.txt
 
       - name: Bot config loader
         run: |
