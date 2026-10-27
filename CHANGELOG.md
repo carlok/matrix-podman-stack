@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `scripts/verify-synapse-postgres.sh` — smoke test Synapse `/health` against Postgres 18 (see `docs/postgres-upgrade.md`).
+
 ### Changed
 
 - **Valkey** `9.1.2-alpine` → `9.1.3-alpine`, **Garage** `v2.4.1` → `v2.5.0`, **Ollama** `0.40.10` → `0.40.11` (patch/minor within current majors; optional profiles).

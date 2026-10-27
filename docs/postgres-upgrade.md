@@ -56,6 +56,14 @@ podman compose up -d
 
 Confirm Synapse (and the Telegram bridge, if used) connect and health checks pass. Remove old backup directories only after you are satisfied.
 
+Optional smoke test after migration or on a fresh install:
+
+```bash
+./scripts/verify-synapse-postgres.sh
+```
+
+This starts Postgres 18 and Synapse (running `bootstrap.sh` first if `homeserver.yaml` is missing) and checks `http://127.0.0.1:8008/health`.
+
 ## Manual alternative
 
 You may use `pg_dump` / `pg_restore` or `pg_upgrade` yourself. The compose volume mount for Postgres 18 must be `${DATA_DIR}/postgres-<service>:/var/lib/postgresql`, with a new or migrated data tree under `18/docker` on the host.
