@@ -381,7 +381,7 @@ services:
 
   grafana:
     <<: [*mem_grafana, *harden_monitoring]
-    image: docker.io/grafana/grafana:13.2.4
+    image: docker.io/grafana/grafana:13.3.0
     restart: unless-stopped
     user: "0:0"
     profiles:
