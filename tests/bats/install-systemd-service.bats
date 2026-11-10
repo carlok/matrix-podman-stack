@@ -20,6 +20,7 @@ teardown() {
   [ -f "$unit" ]
   grep -q "WorkingDirectory=${ROOT}" "$unit"
   grep -q "ExecStart=" "$unit"
+  grep -q "scripts/compose_stack.sh up -d" "$unit"
 }
 
 @test "uninstall removes unit file" {

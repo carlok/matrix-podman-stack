@@ -64,11 +64,6 @@ if [[ -z "$COMPOSE_PROFILES" && -f "$ROOT/.env" ]]; then
 fi
 COMPOSE_PROFILES="${COMPOSE_PROFILES:-}"
 
-PODMAN_COMPOSE="$(command -v podman-compose || true)"
-if [[ -z "$PODMAN_COMPOSE" ]]; then
-  PODMAN_COMPOSE="podman compose"
-fi
-
 mkdir -p "$USER_UNIT_DIR"
 
 cat >"$UNIT_PATH" <<UNIT
@@ -85,8 +80,8 @@ Environment=HOST_UID=${HOST_UID:-1000}
 Environment=HOST_GID=${HOST_GID:-1000}
 Environment=COMPOSE_PROFILES=${COMPOSE_PROFILES}
 EnvironmentFile=-${ROOT}/.env
-ExecStart=/bin/bash -lc 'cd "${ROOT}" && export HOST_UID=\${HOST_UID:-$(id -u)} HOST_GID=\${HOST_GID:-$(id -g)} COMPOSE_PROFILES="${COMPOSE_PROFILES}" && ${PODMAN_COMPOSE} up -d'
-ExecStop=/bin/bash -lc 'cd "${ROOT}" && export COMPOSE_PROFILES="${COMPOSE_PROFILES}" && ${PODMAN_COMPOSE} down'
+ExecStart=/bin/bash -lc 'cd "${ROOT}" && export HOST_UID=\${HOST_UID:-$(id -u)} HOST_GID=\${HOST_GID:-$(id -g)} COMPOSE_PROFILES="${COMPOSE_PROFILES}" && ${ROOT}/scripts/compose_stack.sh up -d'
+ExecStop=/bin/bash -lc 'cd "${ROOT}" && export COMPOSE_PROFILES="${COMPOSE_PROFILES}" && ${ROOT}/scripts/compose_stack.sh down'
 TimeoutStartSec=300
 
 [Install]
