@@ -6,6 +6,11 @@
 
 name: matrix-podman-stack
 
+# podman-compose >= 1.1 defaults to one pod per project. userns_mode: keep-id
+# cannot be combined with --pod, and published ports break across restarts.
+x-podman:
+  in_pod: false
+
 x-synapse-image: &synapse_image docker.io/matrixdotorg/synapse:v1.163.2
 
 # Optional per-service memory caps (Podman: mem_limit). Override in .env; see README sizing.
@@ -280,6 +285,14 @@ services:
 
   valkey:
     <<: [*mem_valkey, *harden_bus]
+    # The image's tini init cannot forward stop signals after cap_drop ALL
+    # (EPERM). Without CAP_KILL, `podman restart` leaves Valkey down.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+      - KILL
     image: docker.io/valkey/valkey:9.1.3-alpine
     restart: unless-stopped
     profiles:
