@@ -70,6 +70,12 @@ grep -vE '^POSTGRES_(SYNAPSE|TELEGRAM)_(IMAGE|MOUNT)=' .env >"$MIGRATION_ENV_FIL
   echo "POSTGRES_TELEGRAM_IMAGE=docker.io/library/postgres:18.6-bookworm"
   echo "POSTGRES_TELEGRAM_MOUNT=/var/lib/postgresql"
 } >>"$MIGRATION_ENV_FILE"
+# podman-compose >= 1.1 lets the process environment override --env-file.
+# .env was sourced above and may still pin Postgres 16 for integration tests.
+export POSTGRES_SYNAPSE_IMAGE=docker.io/library/postgres:18.6-bookworm
+export POSTGRES_SYNAPSE_MOUNT=/var/lib/postgresql
+export POSTGRES_TELEGRAM_IMAGE=docker.io/library/postgres:18.6-bookworm
+export POSTGRES_TELEGRAM_MOUNT=/var/lib/postgresql
 
 timestamp_utc() {
   date -u +"%Y%m%dT%H%M%SZ"

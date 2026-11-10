@@ -19,7 +19,7 @@
 |----------|-------|----------|------------|
 | High | Telegram Postgres default password in compose | `compose.yaml` (was `TELEGRAM_POSTGRES_PASSWORD:-change_me_telegram_db`) | **Fixed** — required via `:?` |
 | High | Grafana default admin password in compose | `compose.yaml` (was `GRAFANA_ADMIN_PASSWORD:-change_me_grafana`) | **Fixed** — required via `:?` |
-| Medium | No container capability / privilege hardening | `compose.yaml` (no `cap_drop` / `security_opt` before audit) | **Fixed** — shared anchors; Valkey needs `CHOWN`/`DAC_OVERRIDE` |
+| Medium | No container capability / privilege hardening | `compose.yaml` (no `cap_drop` / `security_opt` before audit) | **Fixed** — shared anchors; Valkey needs `CHOWN`/`DAC_OVERRIDE`/`KILL` (tini) |
 | Medium | Postgres on same bridge as all services | `compose.yaml` `networks.matrix` only | **Fixed** — `matrix-db` internal network |
 | Medium | Synapse metrics on client HTTP listener (`8008`) | `bootstrap/synapse-bootstrap.sh` | **Fixed** — metrics on `:9000`; Prometheus updated |
 | Medium | No URL preview SSRF blacklist in generated Synapse config | `bootstrap/synapse-bootstrap.sh` | **Fixed** — `url_preview_ip_range_blacklist` |

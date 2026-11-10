@@ -77,7 +77,10 @@ def test_valkey_kv_survives_restart(integration_data_dir: Path):
         client = redis.Redis(host="127.0.0.1", port=16379, password=pw, decode_responses=True)
         client.set("matrix:integration:marker", "valkey-ok")
         client.close()
-        podman_stack.compose("restart", "valkey", profiles="bus")
+        # `podman restart` on the current GitHub runner stops this container and
+        # does not start it again (exit 0, no second "Ready to accept"). stop+start does.
+        podman_stack.compose("stop", "valkey", profiles="bus")
+        podman_stack.compose("start", "valkey", profiles="bus")
         for _ in range(40):
             try:
                 client = redis.Redis(host="127.0.0.1", port=16379, password=pw, decode_responses=True)
@@ -88,7 +91,8 @@ def test_valkey_kv_survives_restart(integration_data_dir: Path):
                 __import__("time").sleep(2)
         raise AssertionError("Valkey did not recover after restart")
     except Exception:
-        print(podman_stack.dump_compose_logs(["valkey"]))
+        print(podman_stack.run(["podman", "ps", "-a"], check=False).stdout)
+        print(podman_stack.dump_compose_logs(["valkey"], profiles="bus"))
         raise
     finally:
         podman_stack.compose_down(profiles="bus")
