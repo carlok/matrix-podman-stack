@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `podman-compose` 1.5 ignores `COMPOSE_PROFILES` and reports profiled services as missing. `scripts/compose_stack.sh` (and the integration helper) pass `--profile` when that flag exists. The systemd user unit now starts and stops through `compose_stack.sh`.
 - `upgrade-postgres.sh` ignores `POSTGRES_*_IMAGE` / `POSTGRES_*_MOUNT` overrides in `.env` so restores always run on Postgres 18; stops/removes dependent containers before dump; fails if post-restore major is not 18.
 - Integration CI uses `podman-compose` via `scripts/compose_stack.sh` (avoids docker-compose plugin failures on GitHub Actions).
 - NATS monitoring HTTP listener binds `0.0.0.0:8222` so host port maps and Prometheus-style checks work from the host.

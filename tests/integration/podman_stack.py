@@ -84,11 +84,51 @@ def run(
     return proc
 
 
-def compose_cmd(*args: str, extra_files: list[Path] | None = None) -> list[str]:
+_PROFILE_FLAG_SUPPORTED: bool | None = None
+
+
+def _podman_compose_supports_profile() -> bool:
+    """podman-compose >= 1.1 filters on --profile and ignores COMPOSE_PROFILES."""
+    global _PROFILE_FLAG_SUPPORTED
+    if _PROFILE_FLAG_SUPPORTED is None:
+        try:
+            proc = subprocess.run(
+                ["podman-compose", "--help"],
+                text=True,
+                capture_output=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            _PROFILE_FLAG_SUPPORTED = False
+        else:
+            text = f"{proc.stdout}\n{proc.stderr}"
+            _PROFILE_FLAG_SUPPORTED = "--profile" in text
+    return _PROFILE_FLAG_SUPPORTED
+
+
+def profile_args(profiles: str | None) -> list[str]:
+    """Translate a COMPOSE_PROFILES list into podman-compose --profile flags."""
+    if not profiles or not _podman_compose_supports_profile():
+        return []
+    args: list[str] = []
+    for profile in profiles.split(","):
+        name = profile.strip()
+        if name:
+            args.extend(["--profile", name])
+    return args
+
+
+def compose_cmd(
+    *args: str,
+    extra_files: list[Path] | None = None,
+    profiles: str | None = None,
+) -> list[str]:
     # ubuntu-latest defaults `podman compose` to the docker-compose plugin; use podman-compose in CI.
     cmd = ["podman-compose", "-f", str(ROOT / "compose.yaml")]
     for path in extra_files or []:
         cmd.extend(["-f", str(path)])
+    cmd.extend(profile_args(profiles))
     cmd.extend(args)
     return cmd
 
@@ -100,7 +140,7 @@ def compose(
     env: dict[str, str] | None = None,
     timeout: int = 600,
 ) -> subprocess.CompletedProcess[str]:
-    cmd = compose_cmd(*args, extra_files=extra_files)
+    cmd = compose_cmd(*args, extra_files=extra_files, profiles=profiles)
     merged: dict[str, str] = {}
     if profiles:
         merged["COMPOSE_PROFILES"] = profiles
@@ -127,7 +167,7 @@ def purge_compose_project() -> None:
 
 def compose_down(profiles: str | None = None, extra_files: list[Path] | None = None) -> None:
     run(
-        compose_cmd("down", "-v", extra_files=extra_files),
+        compose_cmd("down", "-v", extra_files=extra_files, profiles=profiles),
         env={"COMPOSE_PROFILES": profiles} if profiles else None,
         check=False,
         timeout=900,
