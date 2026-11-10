@@ -285,6 +285,14 @@ services:
 
   valkey:
     <<: [*mem_valkey, *harden_bus]
+    # The image's tini init cannot forward stop signals after cap_drop ALL
+    # (EPERM). Without CAP_KILL, `podman restart` leaves Valkey down.
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+      - KILL
     image: docker.io/valkey/valkey:9.1.3-alpine
     restart: unless-stopped
     profiles:

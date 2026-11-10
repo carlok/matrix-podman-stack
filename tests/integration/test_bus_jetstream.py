@@ -88,7 +88,7 @@ def test_valkey_kv_survives_restart(integration_data_dir: Path):
                 __import__("time").sleep(2)
         raise AssertionError("Valkey did not recover after restart")
     except Exception:
-        print(podman_stack.dump_compose_logs(["valkey"]))
+        print(podman_stack.dump_compose_logs(["valkey"], profiles="bus"))
         raise
     finally:
         podman_stack.compose_down(profiles="bus")

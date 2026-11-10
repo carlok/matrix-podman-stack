@@ -232,28 +232,31 @@ def wait_pg_isready(
     timeout_s: float = 120.0,
 ) -> None:
     def ready() -> bool:
-        proc = compose(
-            "exec",
-            "-T",
-            service,
-            "pg_isready",
-            "-U",
-            user,
-            env=env,
-            profiles=profiles,
-            timeout=30,
-        )
+        try:
+            proc = compose(
+                "exec",
+                "-T",
+                service,
+                "pg_isready",
+                "-U",
+                user,
+                env=env,
+                profiles=profiles,
+                timeout=30,
+            )
+        except ComposeError:
+            return False
         return proc.returncode == 0
 
     wait_until(ready, timeout_s=timeout_s, description=f"{service} pg_isready")
 
 
-def dump_compose_logs(services: list[str] | None = None) -> str:
+def dump_compose_logs(services: list[str] | None = None, *, profiles: str | None = None) -> str:
     args = ["logs", "--tail", "200"]
     if services:
         args.extend(services)
     try:
-        proc = compose(*args, timeout=120)
+        proc = compose(*args, profiles=profiles, timeout=120)
         return proc.stdout + proc.stderr
     except ComposeError as exc:
         return exc.stdout + exc.stderr

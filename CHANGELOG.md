@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `podman-compose` 1.5 ignores `COMPOSE_PROFILES` and reports profiled services as missing. `scripts/compose_stack.sh` (and the integration helper) pass `--profile` when that flag exists. The systemd user unit now starts and stops through `compose_stack.sh`.
 - `podman-compose` 1.5 also defaults to a shared pod, which Podman rejects together with `userns_mode: keep-id`. `compose.yaml` sets `x-podman.in_pod: false` (the 1.0.x default).
+- `upgrade-postgres.sh` exports the Postgres 18 image and mount. `podman-compose` 1.5 prefers that process environment over `--env-file`, so a sourced `.env` pinning Postgres 16 no longer wins.
+- Valkey keeps `CAP_KILL` so its tini init can forward stop signals after `cap_drop: ALL`.
 - `upgrade-postgres.sh` ignores `POSTGRES_*_IMAGE` / `POSTGRES_*_MOUNT` overrides in `.env` so restores always run on Postgres 18; stops/removes dependent containers before dump; fails if post-restore major is not 18.
 - Integration CI uses `podman-compose` via `scripts/compose_stack.sh` (avoids docker-compose plugin failures on GitHub Actions).
 - NATS monitoring HTTP listener binds `0.0.0.0:8222` so host port maps and Prometheus-style checks work from the host.
