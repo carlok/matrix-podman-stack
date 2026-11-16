@@ -347,7 +347,7 @@ services:
 
   qdrant:
     <<: [*mem_qdrant, *harden_bus]
-    image: docker.io/qdrant/qdrant:v1.20.0
+    image: docker.io/qdrant/qdrant:v1.20.1
     restart: unless-stopped
     profiles:
       - vectors
