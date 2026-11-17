@@ -141,7 +141,7 @@ services:
 
   element:
     <<: [*mem_element, *harden_element]
-    image: docker.io/vectorim/element-web:v1.12.33
+    image: docker.io/vectorim/element-web:v1.12.35
     restart: unless-stopped
     user: "0:0"
     depends_on:
