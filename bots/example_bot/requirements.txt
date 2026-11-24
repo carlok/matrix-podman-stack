@@ -1,4 +1,8 @@
-matrix-nio==0.26.0
+# Versions are owned by requirements-dev.txt, the single source of exact pins; this file
+# only declares what the example bot needs and how old it may be. Both were exact-pinned
+# here before, so a Dependabot bump of the root pin left one file at the old version and the
+# combined pip resolution in CI unsatisfiable (PR #53 failed exactly that way).
+matrix-nio>=0.26.0
 aiohttp>=3.9.0
-nats-py==2.17.0
-redis==8.1.0
+nats-py>=2.17.0
+redis>=8.1.0
